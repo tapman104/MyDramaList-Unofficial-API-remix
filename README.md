@@ -1,4 +1,4 @@
-# MyDramaList Scraper API
+# MyDramaList Unofficial API
 
 A serverless FastAPI-based web scraper for MyDramaList.com, designed for deployment on Vercel.
 
