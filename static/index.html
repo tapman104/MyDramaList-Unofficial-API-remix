@@ -1,227 +1,704 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyDramaList Scraper API</title>
-    <!-- Tailwind CSS CDN -->
+    <title>MyDramaList Scraper API Documentation</title>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PrismJS for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <style>
-        /* A little custom style for the scrollbar and text selection */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+        body { font-family: 'Inter', sans-serif; background-color: #020617; }
+        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::selection { background-color: #22d3ee; color: #020617; }
+        .hero-bg { background-image: radial-gradient(ellipse at top, rgba(14, 116, 144, 0.2), transparent 50%); }
+        .info-card { transition: all 0.3s ease-in-out; }
+        .info-card:hover { transform: translateY(-4px); border-color: #164e63; }
+        .info-card.active { border-color: #0891b2; background-color: #0f172a; }
+        .content-panel { transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out, margin-top 0.5s ease-in-out; }
+        .prose-custom { @apply prose prose-invert max-w-none prose-p:text-slate-400 prose-headings:text-white prose-a:text-cyan-400 prose-strong:text-slate-200 prose-code:bg-slate-800 prose-code:px-2 prose-code:py-1 prose-code:rounded-md prose-code:font-normal prose-code:text-sm prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800 prose-pre:rounded-xl prose-ul:text-slate-400 prose-li::marker:text-slate-600; }
+        
+        /* Custom scrollbar for response panels */
+        .response-panel::-webkit-scrollbar { width: 6px; height: 6px; }
+        .response-panel::-webkit-scrollbar-track { background: #1e293b; border-radius: 3px; }
+        .response-panel::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .response-panel::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        /* Container styling for response panels */
+        .response-container { 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease-in-out;
+            border: 1px solid #475569;
         }
-        ::-webkit-scrollbar-track {
-            background: #1f2937;
+        .response-container:hover { 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+            border-color: #64748b;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #4b5563;
-            border-radius: 10px;
+        
+        /* Response header styling */
+        .response-header { 
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-bottom: 1px solid #475569;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
-        }
-        ::selection {
-            background-color: #8b5cf6;
-            color: #ffffff;
-        }
+        
+        /* Animated border for active response panels */
+        .tester-panel.active { border-color: #0891b2; box-shadow: 0 0 0 1px rgba(8, 145, 178, 0.2); }
+        
+        /* Smooth transitions for response content */
+        .response-content { transition: all 0.3s ease-in-out; }
+        
+        /* Custom styling for JSON syntax highlighting */
+        .response-code { font-family: 'JetBrains Mono', monospace !important; line-height: 1.6 !important; font-size: 0.70em !important; }
+        .response-code .token.property { color: #93c5fd !important; }
+        .response-code .token.string { color: #86efac !important; }
+        .response-code .token.number { color: #fbbf24 !important; }
+        .response-code .token.boolean { color: #f87171 !important; }
+        .response-code .token.null { color: #a78bfa !important; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 font-sans antialiased">
-    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
 
-        <!-- Header -->
-        <header class="text-center mb-10">
-            <h1 class="text-4xl md:text-5xl font-bold mb-2">
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
-                    🎭 MyDramaList Scraper API
-                </span>
+<body class="text-slate-300">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-slate-950/70 backdrop-blur-lg border-b border-slate-800">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="flex items-center gap-3">
+                <svg class="w-7 h-7 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
+                <span class="font-bold text-lg text-white">MyDramaList API</span>
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="#api-endpoints" class="text-sm font-medium text-slate-400 hover:text-white transition">API</a>
+                <a href="https://github.com/B1PL0B/MyDramaList-Unofficial-API" target="_blank" class="text-slate-400 hover:text-white transition" aria-label="GitHub">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.492.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.338 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd"></path></svg>
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-16 lg:py-24 max-w-5xl">
+        <section class="hero-bg text-center mb-24">
+             <h1 class="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-br from-white to-slate-400 text-transparent bg-clip-text">
+                MyDramaList API Docs
             </h1>
-            <p class="text-gray-400">A serverless API for scraping MyDramaList.com data</p>
-        </header>
-
-        <!-- Status & Links -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-            <div class="bg-green-900/50 border border-green-500 rounded-lg p-4 flex items-center justify-center space-x-3">
-                <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <p><strong>API Status:</strong> <span class="text-green-400 font-semibold">Online</span></p>
+            <p class="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto">
+                An unofficial, serverless web scraper for MyDramaList.com, designed for educational purposes and deployed on Vercel.
+            </p>
+             <div class="mt-8 font-mono text-sm inline-flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full px-4 py-2">
+                <span class="text-slate-500">Base URL:</span>
+                <span class="text-cyan-400">https://my-drama-list-unofficial-api.vercel.app</span>
             </div>
-             <a href="https://github.com/B1PL0B/MyDramaList-Unofficial-API" target="_blank" rel="noopener noreferrer" class="bg-gray-800 border border-gray-700 hover:border-purple-500 rounded-lg p-4 flex items-center justify-center space-x-3 transition-colors">
-                <svg class="w-6 h-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.492.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.338 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd"></path></svg>
-                 <p class="font-semibold">View on GitHub</p>
-             </a>
-        </div>
-
-
-        <!-- API Endpoints Grid -->
-        <h2 class="text-3xl font-bold mb-6 text-gray-100">📚 Available Endpoints</h2>
-        <div id="endpoints-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Endpoint cards will be dynamically added here by JS -->
-        </div>
-
-        <!-- Response Section -->
-        <div id="response-container" class="mt-12">
-            <h2 class="text-3xl font-bold mb-4 text-gray-100">📊 API Response</h2>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg mt-4 relative">
-                <button id="copy-btn" title="Copy to clipboard" class="absolute top-2 right-2 p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md transition">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"></path><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z"></path></svg>
-                </button>
-                <pre class="max-h-96 overflow-auto p-4 rounded-lg"><code id="response-code" class="text-sm language-json whitespace-pre-wrap">{ "message": "Test an endpoint above to see the response here." }</code></pre>
+        </section>
+        
+        <!-- Info Cards Section -->
+        <section class="mb-16">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-white mb-4">Quick Start Guide</h2>
+                <p class="text-slate-400 max-w-2xl mx-auto">Choose a section below to learn more about the API features, setup process, and deployment options.</p>
             </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="text-center text-gray-500 text-sm mt-12 py-6 border-t border-gray-800">
-            <p>Built with FastAPI • Deployed on Vercel • Powered by BeautifulSoup4</p>
-            <p class="mt-1"><strong>Note:</strong> This API is for educational purposes only. Please respect MyDramaList.com's terms of service.</p>
-        </footer>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const apiUrl = 'https://my-drama-list-unofficial-api.vercel.app';
-            const endpointsGrid = document.getElementById('endpoints-grid');
-            const responseCodeEl = document.getElementById('response-code');
-            const copyBtn = document.getElementById('copy-btn');
-
-            const endpoints = [
-                {
-                    method: 'GET',
-                    path: '/api/search/q/{param}',
-                    description: 'Search for dramas by query.',
-                    placeholder: 'my demon',
-                },
-                {
-                    method: 'GET',
-                    path: '/api/id/{param}',
-                    description: 'Get drama details by slug.',
-                    placeholder: '746993-my-demon'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/id/{param}/cast',
-                    description: 'Get cast information.',
-                    placeholder: '746993-my-demon'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/id/{param}/episodes',
-                    description: 'Get episode details.',
-                    placeholder: '746993-my-demon'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/id/{param}/reviews',
-                    description: 'Get drama reviews.',
-                    placeholder: '746993-my-demon'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/people/{param}',
-                    description: 'Get person details by ID.',
-                    placeholder: '14472-song-kang'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/seasonal/{param}',
-                    description: 'Get seasonal dramas (year/quarter).',
-                    placeholder: '2023/4'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/list/{param}',
-                    description: 'Get a specific drama list by ID.',
-                    placeholder: 'p1R8nrJ3'
-                },
-                {
-                    method: 'GET',
-                    path: '/api/dramalist/{param}',
-                    description: 'Get a user\'s drama list by ID.',
-                    placeholder: 'CHOCOLATE'
-                },
-                 {
-                    method: 'GET',
-                    path: '/api/health',
-                    description: 'Health check endpoint.',
-                    placeholder: ''
-                },
-            ];
-
-            // Populate endpoint cards
-            endpoints.forEach(ep => {
-                const card = `
-                <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 flex flex-col hover:border-purple-500/50 transition-all duration-300">
-                    <div>
-                        <div class="flex items-center mb-2">
-                            <span class="bg-green-500 text-white font-bold text-xs px-2 py-1 rounded-md mr-3">${ep.method}</span>
-                            <code class="font-mono text-sm text-purple-300 break-all">${ep.path}</code>
+            
+            <div id="info-cards-container" class="grid md:grid-cols-3 gap-8">
+                <!-- Card 1: Core Features -->
+                <div class="info-card group cursor-pointer relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 rounded-2xl p-8 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10" data-content="features-content">
+                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="relative z-10">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-8 h-8 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                            </svg>
                         </div>
-                        <p class="text-gray-400 text-sm mb-4 h-10">${ep.description}</p>
-                    </div>
-                    <div class="mt-auto">
-                        <div class="flex gap-2 mt-4">
-                            <input type="text" ${ep.path.includes('{param}') ? '' : 'disabled'}
-                                class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 outline-none disabled:opacity-50"
-                                placeholder="${ep.placeholder}"
-                            />
-                            <button
-                                class="test-btn bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-1.5 rounded-md text-sm transition-colors"
-                                data-endpoint="${ep.path}" data-placeholder="${ep.placeholder}">
-                                Test
-                            </button>
+                        <h3 class="text-xl font-bold text-white mb-3 group-hover:text-cyan-400 transition-colors duration-300">Core Features</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Discover the powerful capabilities and design principles behind this comprehensive API.</p>
+                        <div class="flex items-center text-cyan-400 text-sm font-medium group-hover:translate-x-1 transition-transform duration-300">
+                            Learn more
+                            <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                            </svg>
                         </div>
                     </div>
                 </div>
-                `;
-                endpointsGrid.innerHTML += card;
+                
+                <!-- Card 2: Getting Started -->
+                <div class="info-card group cursor-pointer relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 rounded-2xl p-8 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10" data-content="getting-started-content">
+                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="relative z-10">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-8 h-8 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-3 group-hover:text-cyan-400 transition-colors duration-300">Getting Started</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Set up your local development environment and understand the technology stack.</p>
+                        <div class="flex items-center text-cyan-400 text-sm font-medium group-hover:translate-x-1 transition-transform duration-300">
+                            Learn more
+                            <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card 3: Deployment -->
+                <div class="info-card group cursor-pointer relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 rounded-2xl p-8 transition-all duration-300 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10" data-content="deployment-content">
+                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="relative z-10">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300">
+                            <svg class="w-8 h-8 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-3 group-hover:text-cyan-400 transition-colors duration-300">Deployment</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Deploy your own instance on Vercel and contribute to the project development.</p>
+                        <div class="flex items-center text-cyan-400 text-sm font-medium group-hover:translate-x-1 transition-transform duration-300">
+                            Learn more
+                            <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Hidden Content Panels -->
+        <div id="content-panels">
+            <div id="features-content" class="content-panel overflow-hidden max-h-0 opacity-0">
+                <div class="bg-gradient-to-br from-slate-900/50 to-slate-800/30 border border-slate-700/50 rounded-2xl p-8 backdrop-blur-sm">
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 rounded-xl">
+                            <svg class="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-white mb-1">API Overview & Features</h2>
+                            <p class="text-slate-400 text-sm">Comprehensive guide to the API capabilities</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                            <p class="text-slate-300 leading-relaxed mb-6">This API provides a serverless, RESTful interface for scraping public data. It is built for educational use, emphasizing responsible data retrieval. The API includes built-in rate-limiting and a modular design.</p>
+                            
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div class="space-y-4">
+                                    <div class="flex items-start gap-3">
+                                        <div class="inline-flex items-center justify-center w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-lg flex-shrink-0 mt-0.5">
+                                            <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-white text-sm">Comprehensive API</h4>
+                                            <p class="text-slate-400 text-sm">9 endpoints covering search, details, cast, reviews, people, and user lists.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3">
+                                        <div class="inline-flex items-center justify-center w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-lg flex-shrink-0 mt-0.5">
+                                            <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-white text-sm">Serverless on Vercel</h4>
+                                            <p class="text-slate-400 text-sm">Optimized for fast, scalable, and cost-effective serverless deployment.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <div class="flex items-start gap-3">
+                                        <div class="inline-flex items-center justify-center w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-lg flex-shrink-0 mt-0.5">
+                                            <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-white text-sm">Respectful Rate Limiting</h4>
+                                            <p class="text-slate-400 text-sm">A built-in 1-second delay per request protects the source website.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3">
+                                        <div class="inline-flex items-center justify-center w-8 h-8 bg-cyan-500/20 border border-cyan-500/30 rounded-lg flex-shrink-0 mt-0.5">
+                                            <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-white text-sm">Consistent Error Handling</h4>
+                                            <p class="text-slate-400 text-sm">Predictable JSON error responses with proper HTTP status codes.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                                Response Formats
+                            </h3>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div class="bg-slate-900/50 border border-slate-700/50 rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        <h4 class="font-semibold text-white text-sm">Success (Search)</h4>
+                                    </div>
+                                    <pre class="!mt-0 !mb-0 !bg-transparent !border-none !p-0"><code class="language-json text-xs">{
+  "results": [{"title": "My Demon", "slug": "..."}],
+  "total": 1
+}</code></pre>
+                                </div>
+                                <div class="bg-slate-900/50 border border-slate-700/50 rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                                        <h4 class="font-semibold text-white text-sm">Error (404)</h4>
+                                    </div>
+                                    <pre class="!mt-0 !mb-0 !bg-transparent !border-none !p-0"><code class="language-json text-xs">{
+  "code": 404,
+  "error": true,
+  "description": "404 Not Found"
+}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="getting-started-content" class="content-panel overflow-hidden max-h-0 opacity-0">
+                <div class="bg-gradient-to-br from-slate-900/50 to-slate-800/30 border border-slate-700/50 rounded-2xl p-8 backdrop-blur-sm">
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 rounded-xl">
+                            <svg class="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-white mb-1">Local Development Setup</h2>
+                            <p class="text-slate-400 text-sm">Get started with local development and testing</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                            <p class="text-slate-300 leading-relaxed mb-6">To run the API on your local machine for testing or development, follow these steps.</p>
+                            
+                            <div class="grid md:grid-cols-2 gap-8">
+                                <div class="space-y-4">
+                                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                        </svg>
+                                        Technology Stack
+                                    </h3>
+                                    <div class="bg-slate-900/50 border border-slate-700/50 rounded-lg p-4">
+                                        <h4 class="font-semibold text-white text-sm mb-3">Core Technologies</h4>
+                                        <ul class="text-slate-400 text-sm space-y-2">
+                                            <li class="flex items-center gap-2">
+                                                <div class="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                                                Python 3.12, FastAPI, Uvicorn
+                                            </li>
+                                            <li class="flex items-center gap-2">
+                                                <div class="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                                                BeautifulSoup4, Requests
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
+                                        </svg>
+                                        Project Structure
+                                    </h3>
+                                    <div class="bg-slate-900/50 border border-slate-700/50 rounded-lg p-4">
+                                        <pre class="!mt-0 !mb-0 !bg-transparent !border-none !p-0"><code class="font-mono text-xs text-slate-300">project_root/
+├── main.py & scraper.py
+└── requirements.txt ...</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Setup Commands
+                            </h3>
+                            <pre class="!mt-0 !mb-0 !bg-slate-900/50 !border !border-slate-700/50 !rounded-lg !p-4"><code class="language-bash text-xs"># 1. Clone the repository
+git clone https://github.com/B1PL0B/MyDramaList-Unofficial-API.git
+cd MyDramaList-Unofficial-API
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Run the development server
+uvicorn main:app --reload</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="deployment-content" class="content-panel overflow-hidden max-h-0 opacity-0">
+                <div class="bg-gradient-to-br from-slate-900/50 to-slate-800/30 border border-slate-700/50 rounded-2xl p-8 backdrop-blur-sm">
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 border border-cyan-500/30 rounded-xl">
+                            <svg class="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-white mb-1">Deployment & Contribution</h2>
+                            <p class="text-slate-400 text-sm">Deploy on Vercel and contribute to the project</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                            <p class="text-slate-300 leading-relaxed mb-6">This project is optimized for deployment on Vercel. For heavy usage, please fork the repository and deploy your own instance.</p>
+                            
+                            <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-6">
+                                <div class="flex items-start gap-4">
+                                    <div class="inline-flex items-center justify-center w-10 h-10 bg-amber-500/20 border border-amber-500/30 rounded-lg flex-shrink-0">
+                                        <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-white mb-2">Usage & Contribution Notice</h4>
+                                        <p class="text-slate-400 text-sm mb-4">Please deploy your own instance from the GitHub repo for personal use. If you discover bugs or have improvements, submit a pull request.</p>
+                                        <a href="https://github.com/B1PL0B/MyDramaList-Unofficial-API" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.492.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.338 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            Fork on GitHub
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                Vercel Deployment Guide
+                            </h3>
+                            <pre class="!mt-0 !mb-4 !bg-slate-900/50 !border !border-slate-700/50 !rounded-lg !p-4"><code class="language-bash text-xs"># 1. Install Vercel CLI globally
+npm install -g vercel
+
+# 2. Navigate to project root and deploy
+vercel --prod</code></pre>
+                            <p class="text-slate-400 text-sm">Follow the CLI prompts to link and deploy the project. Vercel will automatically handle the Python serverless environment configuration from <code class="bg-slate-700/50 px-2 py-1 rounded text-xs">vercel.json</code>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Endpoints Section -->
+        <section id="api-endpoints" class="mt-24">
+            <h2 class="text-3xl font-bold text-white text-center">API Endpoints</h2>
+            <div class="mt-12 space-y-8">
+                <!-- Endpoint cards will be injected here -->
+            </div>
+        </section>
+        
+    </main>
+    
+    <footer class="border-t border-slate-800 mt-20">
+        <div class="container mx-auto px-6 py-8 text-center text-slate-500 text-sm">
+             <p>© 2024 MyDramaList Unofficial API. Built for educational purposes.</p>
+             <p class="mt-1">This project is not affiliated with MyDramaList.com. All data belongs to its respective owners.</p>
+        </div>
+    </footer>
+    
+    <button id="back-to-top" class="fixed bottom-5 right-5 p-3 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-all duration-300 opacity-0 pointer-events-none -translate-y-4" aria-label="Back to top">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11l7-7 7 7M5 19l7-7 7 7"></path></svg>
+    </button>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const apiUrl = 'https://my-drama-list-unofficial-api.vercel.app';
+            const endpointsContainer = document.querySelector('#api-endpoints > div');
+            
+            const endpoints = [
+                 { id: 'search', title: 'Search Dramas', method: 'GET', path: '/api/search/q/{param}', description: 'Search for dramas by title. Returns a list of matching titles.', param_placeholder: 'my demon' },
+                { id: 'details', title: 'Get Drama Details', method: 'GET', path: '/api/id/{param}', description: 'Get detailed information for a specific drama using its slug.', param_placeholder: '746993-my-demon' },
+                { id: 'cast', title: 'Get Cast & Crew', method: 'GET', path: '/api/id/{param}/cast', description: 'Get cast and crew information, grouped by their roles.', param_placeholder: '746993-my-demon' },
+                { id: 'episodes', title: 'Get Episodes', method: 'GET', path: '/api/id/{param}/episodes', description: 'Get episode details, including titles and air dates.', param_placeholder: '746993-my-demon' },
+                { id: 'reviews', title: 'Get Reviews', method: 'GET', path: '/api/id/{param}/reviews', description: 'Get user reviews for a specific drama.', param_placeholder: '746993-my-demon' },
+                { id: 'people', title: 'Get Person Details', method: 'GET', path: '/api/people/{param}', description: 'Get details for a specific person (actor, director, etc.).', param_placeholder: '14472-song-kang' },
+                { id: 'seasonal', title: 'Get Seasonal Dramas', method: 'GET', path: '/api/seasonal/{param}', description: 'Get top dramas for a specific year and quarter (1-4). Format: {year}/{quarter}.', param_placeholder: '2023/4' },
+                { id: 'list', title: 'Get Drama List', method: 'GET', path: '/api/list/{param}', description: 'Get items from a user-created public list by its ID.', param_placeholder: 'p1R8nrJ3' },
+                { id: 'dramalist', title: 'Get User Watchlist', method: 'GET', path: '/api/dramalist/{param}', description: 'Get the public watchlist for a specific user.', param_placeholder: 'CHOCOLATE' },
+                { id: 'health', title: 'Health Check', method: 'GET', path: '/api/health', description: 'A simple health check endpoint to verify API status.', param_placeholder: '' },
+            ];
+            
+            endpointsContainer.innerHTML = endpoints.map(ep => { /* HTML Generation */ return `...` }).join(''); // JS logic will populate this
+            endpointsContainer.innerHTML = endpoints.map(ep => {
+                const hasParam = ep.path.includes('{param}');
+                return `
+                <div id="endpoint-${ep.id}" class="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                    <div class="p-6 flex flex-col md:flex-row md:justify-between md:items-start">
+                        <div>
+                             <div class="flex items-center gap-4 mb-1">
+                                 <span class="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-bold text-xs font-mono px-2.5 py-1 rounded-full">${ep.method}</span>
+                                 <h3 class="text-xl font-semibold text-white !my-0">${ep.title}</h3>
+                             </div>
+                             <p class="text-slate-400 text-sm mt-2 mb-4">${ep.description}</p>
+                             <code class="text-slate-400 text-sm">${ep.path}</code>
+                        </div>
+                        <div class="mt-4 md:mt-0 flex-shrink-0">
+                             <button data-endpoint-id="${ep.id}" class="try-it-btn flex items-center gap-2 font-semibold text-sm px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors">
+                                Try it Out
+                                <svg class="chevron w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                             </button>
+                        </div>
+                    </div>
+                    <div id="tester-${ep.id}" class="tester-panel hidden border-t border-slate-800">
+                         <div class="p-6 space-y-4">
+                             ${hasParam ? `<div>
+                                 <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase" for="input-${ep.id}">Parameter</label>
+                                 <input type="text" id="input-${ep.id}" class="w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 outline-none transition" placeholder="${ep.param_placeholder}" />
+                             </div>` : ''}
+                             <button data-endpoint-id="${ep.id}" class="send-btn w-full text-center bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-semibold py-2 px-4 rounded-md text-sm transition-colors">
+                                 Send Request
+                             </button>
+                         </div>
+                         <div class="relative bg-gradient-to-br from-slate-950 to-slate-900 border-t border-slate-800">
+                            
+                            <!-- Response Content -->
+                            <div class="relative response-content">
+                                <div class="response-container bg-slate-900 border border-slate-700 rounded-lg mx-4 mb-4 overflow-hidden">
+                                    <div class="response-header bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-slate-500 rounded-full"></div>
+                                            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wide">JSON Response</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex items-center gap-1 mr-2">
+                                                <div class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></div>
+                                                <span class="text-xs text-slate-500">Live</span>
+                                            </div>
+                                            <button title="Format JSON" class="format-btn p-1.5 text-slate-400 hover:text-cyan-400 rounded-md transition hover:bg-slate-700/50">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 019.75 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 018.25 20.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                                                </svg>
+                                            </button>
+                                            <button title="Copy Response" class="copy-btn p-1.5 text-slate-400 hover:text-cyan-400 rounded-md transition hover:bg-slate-700/50">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a2.25 2.25 0 01-2.25 2.25h-1.5a2.25 2.25 0 01-2.25-2.25v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="response-body relative">
+                                        <div class="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-900 to-transparent pointer-events-none z-10"></div>
+                                        <div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-900 to-transparent pointer-events-none z-10"></div>
+                                        <pre class="max-h-96 overflow-auto !bg-transparent p-6 !my-0 language-json relative response-panel bg-slate-900"><code id="response-${ep.id}" class="response-code">{"status": "Awaiting request..."}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Response Footer -->
+                            <div class="flex items-center justify-between px-4 py-2 border-t border-slate-800 bg-slate-900/30">
+                                <div class="flex items-center gap-4 text-xs text-slate-500">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="response-time">Ready</span>
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                                        </svg>
+                                        <span class="response-size">0 B</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full response-status"></div>
+                                    <span class="text-xs text-slate-400 response-status-text">Ready</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            document.body.addEventListener('click', async e => {
+                const target = e.target;
+                const tryItButton = target.closest('.try-it-btn');
+                const sendButton = target.closest('.send-btn');
+                const copyButton = target.closest('.copy-btn');
+                const infoCard = target.closest('.info-card');
+
+                if (infoCard) {
+                    const contentId = infoCard.dataset.content;
+                    const panel = document.getElementById(contentId);
+                    const isActive = infoCard.classList.contains('active');
+                    
+                    document.querySelectorAll('.info-card').forEach(c => c.classList.remove('active'));
+                    document.querySelectorAll('.content-panel').forEach(p => {
+                        p.style.maxHeight = '0px';
+                        p.style.opacity = '0';
+                        p.style.marginTop = '0';
+                    });
+                    
+                    if (!isActive) {
+                        infoCard.classList.add('active');
+                        panel.style.maxHeight = panel.scrollHeight + 'px';
+                        panel.style.opacity = '1';
+                        panel.style.marginTop = '2rem';
+                        Prism.highlightAll();
+                        
+                        // Smooth scroll to the content panel
+                        setTimeout(() => {
+                            panel.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'start',
+                                inline: 'nearest'
+                            });
+                        }, 100);
+                    }
+                }
+                
+                if (tryItButton) {
+                    const endpointId = tryItButton.dataset.endpointId;
+                    const testerPanel = document.getElementById(`tester-${endpointId}`);
+                    const isHidden = testerPanel.classList.contains('hidden');
+                    
+                    testerPanel.classList.toggle('hidden');
+                    tryItButton.querySelector('.chevron').classList.toggle('rotate-180');
+                    
+                    // Add active class when panel is opened
+                    if (!isHidden) {
+                        testerPanel.classList.remove('active');
+                    } else {
+                        testerPanel.classList.add('active');
+                    }
+                }
+
+                if (sendButton) {
+                    const endpointId = sendButton.dataset.endpointId;
+                    const endpoint = endpoints.find(ep => ep.id === endpointId);
+                    const responseCodeEl = document.getElementById(`response-${endpointId}`);
+                    const inputField = document.getElementById(`input-${endpointId}`);
+                    const testerPanel = document.getElementById(`tester-${endpointId}`);
+                    
+                    // Update UI elements
+                    const responseTime = testerPanel.querySelector('.response-time');
+                    const responseSize = testerPanel.querySelector('.response-size');
+                    const responseStatus = testerPanel.querySelector('.response-status');
+                    const responseStatusText = testerPanel.querySelector('.response-status-text');
+                    
+                    const placeholder = inputField ? inputField.placeholder : '';
+                    const inputValue = inputField ? inputField.value.trim() || placeholder : '';
+                    let fullUrl = apiUrl + endpoint.path.replace('{param}', encodeURIComponent(inputValue));
+                    
+                    // Update UI to loading state
+                    sendButton.disabled = true; 
+                    sendButton.textContent = 'Fetching...';
+                    responseCodeEl.textContent = '// Sending request...';
+                    responseTime.textContent = 'Loading...';
+                    responseSize.textContent = '0 B';
+                    responseStatus.className = 'w-2 h-2 bg-yellow-500 rounded-full response-status animate-pulse';
+                    responseStatusText.textContent = 'Loading';
+                    Prism.highlightElement(responseCodeEl);
+                    
+                    const startTime = Date.now();
+                    
+                    try {
+                        const response = await fetch(fullUrl);
+                        const data = await response.json();
+                        const endTime = Date.now();
+                        const responseTimeMs = endTime - startTime;
+                        const responseSizeBytes = new Blob([JSON.stringify(data, null, 2)]).size;
+                        
+                        // Format response size
+                        const formatBytes = (bytes) => {
+                            if (bytes === 0) return '0 B';
+                            const k = 1024;
+                            const sizes = ['B', 'KB', 'MB', 'GB'];
+                            const i = Math.floor(Math.log(bytes) / Math.log(k));
+                            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                        };
+                        
+                        responseCodeEl.textContent = JSON.stringify(data, null, 2);
+                        responseTime.textContent = `${responseTimeMs}ms`;
+                        responseSize.textContent = formatBytes(responseSizeBytes);
+                        responseStatus.className = 'w-2 h-2 bg-green-500 rounded-full response-status';
+                        responseStatusText.textContent = 'Success';
+                        
+                    } catch (error) {
+                        const endTime = Date.now();
+                        const responseTimeMs = endTime - startTime;
+                        
+                        responseCodeEl.textContent = JSON.stringify({ error: "API Fetch Failed", message: error.message }, null, 2);
+                        responseTime.textContent = `${responseTimeMs}ms`;
+                        responseSize.textContent = '0 B';
+                        responseStatus.className = 'w-2 h-2 bg-red-500 rounded-full response-status';
+                        responseStatusText.textContent = 'Error';
+                    } finally {
+                        Prism.highlightElement(responseCodeEl);
+                        sendButton.disabled = false; 
+                        sendButton.textContent = 'Send Request';
+                    }
+                }
+
+                if (copyButton) {
+                    const testerPanel = copyButton.closest('.tester-panel');
+                    const code = testerPanel.querySelector('.response-code');
+                    navigator.clipboard.writeText(code.textContent);
+                    const originalIcon = copyButton.innerHTML;
+                    copyButton.innerHTML = `<svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
+                    setTimeout(() => { copyButton.innerHTML = originalIcon; }, 2000);
+                }
+
+                const formatButton = target.closest('.format-btn');
+                if (formatButton) {
+                    const testerPanel = formatButton.closest('.tester-panel');
+                    const code = testerPanel.querySelector('.response-code');
+                    try {
+                        const parsed = JSON.parse(code.textContent);
+                        code.textContent = JSON.stringify(parsed, null, 2);
+                        Prism.highlightElement(code);
+                    } catch (error) {
+                        // If it's not valid JSON, try to format it as much as possible
+                        const originalText = code.textContent;
+                        code.textContent = originalText.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+                        Prism.highlightElement(code);
+                    }
+                }
             });
             
-            // Add event listeners to all test buttons
-            document.querySelectorAll('.test-btn').forEach(button => {
-                button.addEventListener('click', handleTestClick);
+            const backToTopBtn = document.getElementById('back-to-top');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 400) backToTopBtn.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+                else backToTopBtn.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
             });
-
-            // Handle copy button click
-             copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(responseCodeEl.textContent);
-                copyBtn.title = 'Copied!';
-                const originalIcon = copyBtn.innerHTML;
-                copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
-
-                setTimeout(() => {
-                    copyBtn.innerHTML = originalIcon;
-                    copyBtn.title = 'Copy to clipboard';
-                }, 2000);
-            });
-
-            async function handleTestClick(event) {
-                const button = event.currentTarget;
-                const endpointPath = button.dataset.endpoint;
-                const placeholder = button.dataset.placeholder;
-                const inputField = button.previousElementSibling;
-                const inputValue = inputField.value.trim() || placeholder;
-
-                let fullUrl = apiUrl + endpointPath;
-
-                if(endpointPath.includes('{param}')) {
-                   fullUrl = apiUrl + endpointPath.replace('{param}', encodeURIComponent(inputValue));
-                }
-                
-                responseCodeEl.parentElement.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                responseCodeEl.textContent = 'Fetching data...';
-                
-                try {
-                    const response = await fetch(fullUrl);
-                    const data = await response.json();
-                    
-                    responseCodeEl.textContent = JSON.stringify(data, null, 2);
-
-                } catch (error) {
-                    console.error("API call failed:", error);
-                    responseCodeEl.textContent = `Error: Could not fetch from the API.\n\n${error.message}\n\nPlease check the browser console for more details.`;
-                }
-            }
+            backToTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
         });
     </script>
 </body>
