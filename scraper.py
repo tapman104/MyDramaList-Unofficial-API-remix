@@ -290,7 +290,6 @@ class MyDramaListScraper:
             logger.error(f"Error parsing reviews: {str(e)}")
             return None
 
-    # Other functions remain the same as they were not reported as broken
     async def get_person_details(self, people_id: str) -> Optional[Dict[str, Any]]:
         """Get person details by ID"""
         person_url = f"{self.base_url}/people/{people_id}"
@@ -304,7 +303,12 @@ class MyDramaListScraper:
             name = name_elem.get_text(strip=True) if name_elem else ''
             
             info = {}
-            info_box = soup.find('div', class_='box-body')
+            # Target the sidebar details box which is more consistent
+            info_box = soup.select_one("div.box.clear.hidden-sm-down div.box-body")
+            # Fallback for mobile view if the sidebar is not found
+            if not info_box:
+                info_box = soup.select_one("div.hidden-md-up ul.list")
+
             if info_box:
                 info_items = info_box.find_all('li', class_='list-item')
                 for item in info_items:
@@ -313,7 +317,11 @@ class MyDramaListScraper:
                         key, value = text.split(':', 1)
                         info[key.strip()] = value.strip()
             
-            img_elem = soup.find('div', class_='col-sm-4').find('img')
+            # Target the main profile image, often in the sidebar
+            img_elem = soup.select_one("div.content-side .box-body img.img-responsive")
+            if not img_elem: # Fallback to mobile image if sidebar image is not present
+                img_elem = soup.select_one('div.cover.hidden-md-up img.img-responsive')
+            
             image = img_elem['src'] if img_elem else ''
             
             return {
@@ -389,36 +397,39 @@ class MyDramaListScraper:
             return None
 
         try:
-            if soup.find(string=re.compile(r'private|Private', re.IGNORECASE)):
+            # Proactively check for private list message
+            if "private" in soup.text.lower() and "list" in soup.text.lower():
                 raise Exception("This list is private")
             
             title_elem = soup.find('h1')
             title = title_elem.get_text(strip=True) if title_elem else ''
             
-            description_elem = soup.find('div', class_='list-description')
+            description_elem = soup.select_one('div.box-header .description')
             description = description_elem.get_text(strip=True) if description_elem else ''
             
             dramas = []
-            drama_items = soup.find_all('div', class_='list-item')
+            # The site structure has changed to use <li> in a <ul>
+            drama_items = soup.select('ul.list-group li.list-group-item')
             
             for item in drama_items:
                 try:
-                    title_elem = item.find('a', class_='title')
+                    # Title is now inside an <h2>
+                    title_elem = item.select_one('h2.title > a')
                     if not title_elem:
                         continue
                     
                     drama_title = title_elem.get_text(strip=True)
                     link = title_elem['href']
-                    slug = link.split('/')[-1]
+                    slug = link.split('/')[-1] if link else ''
                     
-                    img_elem = item.find('img')
-                    image = img_elem.get('src') or img_elem.get('data-src')
+                    img_elem = item.find('img', class_='lazy')
+                    image = img_elem.get('data-src') or img_elem.get('src')
                     
                     dramas.append({
                         'title': drama_title,
                         'slug': slug,
                         'image': image,
-                        'url': f"{self.base_url}{link}"
+                        'url': f"{self.base_url}{link}" if link else ''
                     })
                 except Exception as e:
                     logger.error(f"Error parsing list item: {str(e)}")
@@ -446,46 +457,52 @@ class MyDramaListScraper:
             return None
 
         try:
-            if soup.find(string=re.compile(r'private|Private', re.IGNORECASE)):
+            # Proactively check for private list message
+            if "This user's list is private." in soup.get_text():
                 raise Exception("This list is private")
             
-            username_elem = soup.find('h1', class_='pull-left')
-            username = username_elem.get_text(strip=True).replace("'s Watchlist", "") if username_elem else user_id
+            # The username is now inside a specific header structure
+            username_elem = soup.select_one('h1.mdl-style-header a')
+            username = username_elem.get_text(strip=True) if username_elem else user_id
             
             dramas = []
-            drama_rows = soup.select('table.table-condensed > tbody > tr')
+            # Find all list tables (e.g., Currently Watching, Completed)
+            list_sections = soup.find_all('div', class_='mdl-style-list')
             
-            for row in drama_rows[:50]:
-                try:
-                    title_elem = row.find('a', class_='title')
-                    if not title_elem:
-                        continue
+            for section in list_sections:
+                status_header = section.find('h3', class_='mdl-style-list-label')
+                status = status_header.get_text(strip=True) if status_header else 'Unknown'
+
+                drama_rows = section.select('table > tbody > tr')
+
+                for row in drama_rows:
+                    try:
+                        title_elem = row.find('a', class_='title')
+                        if not title_elem:
+                            continue
+                            
+                        title = title_elem.get_text(strip=True)
+                        link = title_elem['href']
+                        slug = link.split('/')[-1] if link else ''
+
+                        rating_elem = row.select_one('td.mdl-style-col-score .score')
+                        rating = rating_elem.get_text(strip=True) if rating_elem and rating_elem.get_text(strip=True) not in ["0.0", "N/A"] else ''
                         
-                    title = title_elem.get_text(strip=True)
-                    link = title_elem['href']
-                    slug = link.split('/')[-1]
-                    
-                    status_elem = row.find('span', class_=re.compile(r'status\d+'))
-                    status = status_elem.get_text(strip=True) if status_elem else ''
+                        # Note: This view does not have images. 'image' will be empty.
+                        image = ''
 
-                    rating_elem = row.find('td', class_='score-td')
-                    rating = rating_elem.get_text(strip=True) if rating_elem and rating_elem.get_text(strip=True).isdigit() else ''
-
-                    img_elem = row.find('img', class_='lazy')
-                    image = img_elem.get('data-src') if img_elem else ''
-
-                    dramas.append({
-                        'title': title,
-                        'slug': slug,
-                        'status': status,
-                        'rating': rating,
-                        'image': image,
-                        'url': f"{self.base_url}{link}"
-                    })
-                except Exception as e:
-                    logger.error(f"Error parsing user list item: {str(e)}")
-                    continue
-
+                        dramas.append({
+                            'title': title,
+                            'slug': slug,
+                            'status': status,
+                            'rating': rating,
+                            'image': image,
+                            'url': f"{self.base_url}{link}" if link else ''
+                        })
+                    except Exception as e:
+                        logger.error(f"Error parsing user list item: {str(e)}")
+                        continue
+            
             return {
                 'username': username,
                 'user_id': user_id,
