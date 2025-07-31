@@ -2,6 +2,8 @@
 
 A serverless FastAPI-based web scraper for MyDramaList.com, designed for deployment on Vercel.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FB1PL0B%2FMyDramaList-Unofficial-API)
+
 ## 🚀 Features
 
 - **Comprehensive API**: 9 endpoints covering drama search, details, cast, episodes, reviews, people, seasonal data, lists, and user drama lists
@@ -35,7 +37,7 @@ A serverless FastAPI-based web scraper for MyDramaList.com, designed for deploym
 
 ## 📁 Project Structure
 
-\`\`\`
+```
 project_root/
 ├── main.py              # FastAPI application
 ├── scraper.py           # Scraping logic
@@ -44,25 +46,25 @@ project_root/
 ├── static/
 │   └── index.html      # API documentation page
 └── README.md           # This file
-\`\`\`
+```
 
 ## 🔧 Local Development
 
 1. **Clone and setup**:
-   \`\`\`bash
+   ```bash
    git clone <repository-url>
    cd mydramalist-scraper
-   \`\`\`
+   ```
 
 2. **Install dependencies**:
-   \`\`\`bash
+   ```bash
    pip install -r requirements.txt
-   \`\`\`
+   ```
 
 3. **Run development server**:
-   \`\`\`bash
+   ```bash
    uvicorn main:app --reload
-   \`\`\`
+   ```
 
 4. **Access the API**:
    - API Documentation: http://localhost:8000
@@ -78,19 +80,19 @@ project_root/
 ### Deployment Steps
 
 1. **Install Vercel CLI** (if not already installed):
-   \`\`\`bash
+   ```bash
    npm i -g vercel
-   \`\`\`
+   ```
 
 2. **Login to Vercel**:
-   \`\`\`bash
+   ```bash
    vercel login
-   \`\`\`
+   ```
 
 3. **Deploy to Vercel**:
-   \`\`\`bash
+   ```bash
    vercel --prod
-   \`\`\`
+   ```
 
 4. **Follow the prompts**:
    - Set up and deploy: `Y`
@@ -109,30 +111,54 @@ project_root/
 ## 📊 Response Examples
 
 ### Search Results
-\`\`\`json
+```json
 {
   "results": [
     {
       "title": "Squid Game",
-      "slug": "squid-game",
+      "slug": "40257-round-six",
       "year": "2021",
-      "image": "https://...",
-      "rating": "8.9",
-      "url": "https://mydramalist.com/squid-game"
+      "image": "https://i.mydramalist.com/X6vkX_4s.jpg?v=1",
+      "rating": "8.4",
+      "url": "https://mydramalist.com/40257-round-six"
+    },
+    {
+      "title": "Squid Game in Conversation",
+      "slug": "795618-squid-game-in-conversation",
+      "year": "2025",
+      "image": "https://i.mydramalist.com/5vWpAe_4s.jpg?v=1",
+      "rating": "8.0",
+      "url": "https://mydramalist.com/795618-squid-game-in-conversation"
+    },
+    {
+      "title": "Squid Game Season 3",
+      "slug": "771707-squid-game-season-3",
+      "year": "2025",
+      "image": "https://i.mydramalist.com/g0Rbn1_4s.jpg?v=1",
+      "rating": "7.5",
+      "url": "https://mydramalist.com/771707-squid-game-season-3"
+    },
+    {
+      "title": "Squid Game Season 2",
+      "slug": "714529-squid-game-season-2",
+      "year": "2024",
+      "image": "https://i.mydramalist.com/3o7eqj_4s.jpg?v=1",
+      "rating": "8.1",
+      "url": "https://mydramalist.com/714529-squid-game-season-2"
     }
   ],
-  "total": 1
+  "total": 20
 }
-\`\`\`
+```
 
 ### Error Response
-\`\`\`json
+```json
 {
   "code": 404,
   "error": true,
   "description": "404 Not Found"
 }
-\`\`\`
+```
 
 ## ⚠️ Important Notes
 
