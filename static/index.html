@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyDramaList Scraper API</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .endpoint {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .method {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .url {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        .description {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .status {
+            text-align: center;
+            padding: 20px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            color: #155724;
+            margin-bottom: 30px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+        }
+        .example {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 3px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎭 MyDramaList Scraper API</h1>
+        
+        <div class="status">
+            <strong>✅ API Status: Online</strong><br>
+            A serverless API for scraping MyDramaList.com data
+        </div>
+
+        <h2>📚 Available Endpoints</h2>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/search/q/{query}</div>
+            <div class="description">Search for dramas by query</div>
+            <div class="example">Example: <code>/api/search/q/squid%20game</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/id/{slug}</div>
+            <div class="description">Get drama details by slug</div>
+            <div class="example">Example: <code>/api/id/squid-game</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/id/{slug}/cast</div>
+            <div class="description">Get cast information for a drama</div>
+            <div class="example">Example: <code>/api/id/squid-game/cast</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/id/{slug}/episodes</div>
+            <div class="description">Get episode details for a drama</div>
+            <div class="example">Example: <code>/api/id/squid-game/episodes</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/id/{slug}/reviews</div>
+            <div class="description">Get reviews for a drama</div>
+            <div class="example">Example: <code>/api/id/squid-game/reviews</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/people/{people_id}</div>
+            <div class="description">Get person details by ID</div>
+            <div class="example">Example: <code>/api/people/15251-lee-jung-jae</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/seasonal/{year}/{quarter}</div>
+            <div class="description">Get seasonal dramas (quarter: 1-4)</div>
+            <div class="example">Example: <code>/api/seasonal/2025/1</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/list/{id}</div>
+            <div class="description">Get a specific drama list by ID</div>
+            <div class="example">Example: <code>/api/list/12345</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/dramalist/{user_id}</div>
+            <div class="description">Get a user's drama list by user ID</div>
+            <div class="example">Example: <code>/api/dramalist/username</code></div>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <div class="url">/api/health</div>
+            <div class="description">Health check endpoint</div>
+        </div>
+
+        <h2>📝 Response Format</h2>
+        <p>All endpoints return JSON responses. Error responses follow this format:</p>
+        <div class="url">
+            {"code": 404, "error": true, "description": "404 Not Found"}
+        </div>
+
+        <h2>⚠️ Rate Limiting</h2>
+        <p>This API includes built-in rate limiting (1 second delay between requests) to respect MyDramaList.com's servers. Please use responsibly.</p>
+
+        <div class="footer">
+            <p>Built with FastAPI • Deployed on Vercel • Powered by BeautifulSoup4</p>
+            <p><strong>Note:</strong> This API is for educational purposes only. Please respect MyDramaList.com's terms of service.</p>
+        </div>
+    </div>
+</body>
+</html>
