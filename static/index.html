@@ -46,6 +46,7 @@
             padding: 5px 10px;
             border-radius: 3px;
             margin: 10px 0;
+            word-wrap: break-word;
         }
         .description {
             color: #6c757d;
@@ -92,63 +93,63 @@
             <span class="method">GET</span>
             <div class="url">/api/search/q/{query}</div>
             <div class="description">Search for dramas by query</div>
-            <div class="example">Example: <code>/api/search/q/squid%20game</code></div>
+            <div class="example">Example: <code>/api/search/q/my%20demon</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/id/{slug}</div>
             <div class="description">Get drama details by slug</div>
-            <div class="example">Example: <code>/api/id/squid-game</code></div>
+            <div class="example">Example: <code>/api/id/746993-my-demon</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/id/{slug}/cast</div>
             <div class="description">Get cast information for a drama</div>
-            <div class="example">Example: <code>/api/id/squid-game/cast</code></div>
+            <div class="example">Example: <code>/api/id/746993-my-demon/cast</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/id/{slug}/episodes</div>
             <div class="description">Get episode details for a drama</div>
-            <div class="example">Example: <code>/api/id/squid-game/episodes</code></div>
+            <div class="example">Example: <code>/api/id/746993-my-demon/episodes</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/id/{slug}/reviews</div>
             <div class="description">Get reviews for a drama</div>
-            <div class="example">Example: <code>/api/id/squid-game/reviews</code></div>
+            <div class="example">Example: <code>/api/id/746993-my-demon/reviews</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/people/{people_id}</div>
             <div class="description">Get person details by ID</div>
-            <div class="example">Example: <code>/api/people/15251-lee-jung-jae</code></div>
+            <div class="example">Example: <code>/api/people/14472-song-kang</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/seasonal/{year}/{quarter}</div>
             <div class="description">Get seasonal dramas (quarter: 1-4)</div>
-            <div class="example">Example: <code>/api/seasonal/2025/1</code></div>
+            <div class="example">Example: <code>/api/seasonal/2023/4</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/list/{id}</div>
             <div class="description">Get a specific drama list by ID</div>
-            <div class="example">Example: <code>/api/list/12345</code></div>
+            <div class="example">Example: <code>/api/list/p1R8nrJ3</code></div>
         </div>
 
         <div class="endpoint">
             <span class="method">GET</span>
             <div class="url">/api/dramalist/{user_id}</div>
             <div class="description">Get a user's drama list by user ID</div>
-            <div class="example">Example: <code>/api/dramalist/username</code></div>
+            <div class="example">Example: <code>/api/dramalist/CHOCOLATE</code></div>
         </div>
 
         <div class="endpoint">
