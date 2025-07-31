@@ -4,173 +4,225 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MyDramaList Scraper API</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+        /* A little custom style for the scrollbar and text selection */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
-        .container {
-            background: white;
-            padding: 30px;
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 30px;
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
         }
-        .endpoint {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 15px 0;
-        }
-        .method {
-            background: #28a745;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .url {
-            font-family: 'Courier New', monospace;
-            background: #e9ecef;
-            padding: 5px 10px;
-            border-radius: 3px;
-            margin: 10px 0;
-            word-wrap: break-word;
-        }
-        .description {
-            color: #6c757d;
-            font-size: 14px;
-        }
-        .status {
-            text-align: center;
-            padding: 20px;
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 5px;
-            color: #155724;
-            margin-bottom: 30px;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e9ecef;
-            color: #6c757d;
-        }
-        .example {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 3px;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 13px;
+        ::selection {
+            background-color: #8b5cf6;
+            color: #ffffff;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>🎭 MyDramaList Scraper API</h1>
-        
-        <div class="status">
-            <strong>✅ API Status: Online</strong><br>
-            A serverless API for scraping MyDramaList.com data
+<body class="bg-gray-900 text-gray-200 font-sans antialiased">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2">
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+                    🎭 MyDramaList Scraper API
+                </span>
+            </h1>
+            <p class="text-gray-400">A serverless API for scraping MyDramaList.com data</p>
+        </header>
+
+        <!-- Status & Links -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+            <div class="bg-green-900/50 border border-green-500 rounded-lg p-4 flex items-center justify-center space-x-3">
+                <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <p><strong>API Status:</strong> <span class="text-green-400 font-semibold">Online</span></p>
+            </div>
+             <a href="https://github.com/B1PL0B/MyDramaList-Unofficial-API" target="_blank" rel="noopener noreferrer" class="bg-gray-800 border border-gray-700 hover:border-purple-500 rounded-lg p-4 flex items-center justify-center space-x-3 transition-colors">
+                <svg class="w-6 h-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.492.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.338 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd"></path></svg>
+                 <p class="font-semibold">View on GitHub</p>
+             </a>
         </div>
 
-        <h2>📚 Available Endpoints</h2>
 
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/search/q/{query}</div>
-            <div class="description">Search for dramas by query</div>
-            <div class="example">Example: <code>/api/search/q/my%20demon</code></div>
+        <!-- API Endpoints Grid -->
+        <h2 class="text-3xl font-bold mb-6 text-gray-100">📚 Available Endpoints</h2>
+        <div id="endpoints-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Endpoint cards will be dynamically added here by JS -->
         </div>
 
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/id/{slug}</div>
-            <div class="description">Get drama details by slug</div>
-            <div class="example">Example: <code>/api/id/746993-my-demon</code></div>
+        <!-- Response Section -->
+        <div id="response-container" class="mt-12">
+            <h2 class="text-3xl font-bold mb-4 text-gray-100">📊 API Response</h2>
+            <div class="bg-gray-800 border border-gray-700 rounded-lg mt-4 relative">
+                <button id="copy-btn" title="Copy to clipboard" class="absolute top-2 right-2 p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md transition">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z"></path><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z"></path></svg>
+                </button>
+                <pre class="max-h-96 overflow-auto p-4 rounded-lg"><code id="response-code" class="text-sm language-json whitespace-pre-wrap">{ "message": "Test an endpoint above to see the response here." }</code></pre>
+            </div>
         </div>
 
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/id/{slug}/cast</div>
-            <div class="description">Get cast information for a drama</div>
-            <div class="example">Example: <code>/api/id/746993-my-demon/cast</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/id/{slug}/episodes</div>
-            <div class="description">Get episode details for a drama</div>
-            <div class="example">Example: <code>/api/id/746993-my-demon/episodes</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/id/{slug}/reviews</div>
-            <div class="description">Get reviews for a drama</div>
-            <div class="example">Example: <code>/api/id/746993-my-demon/reviews</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/people/{people_id}</div>
-            <div class="description">Get person details by ID</div>
-            <div class="example">Example: <code>/api/people/14472-song-kang</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/seasonal/{year}/{quarter}</div>
-            <div class="description">Get seasonal dramas (quarter: 1-4)</div>
-            <div class="example">Example: <code>/api/seasonal/2023/4</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/list/{id}</div>
-            <div class="description">Get a specific drama list by ID</div>
-            <div class="example">Example: <code>/api/list/p1R8nrJ3</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/dramalist/{user_id}</div>
-            <div class="description">Get a user's drama list by user ID</div>
-            <div class="example">Example: <code>/api/dramalist/CHOCOLATE</code></div>
-        </div>
-
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <div class="url">/api/health</div>
-            <div class="description">Health check endpoint</div>
-        </div>
-
-        <h2>📝 Response Format</h2>
-        <p>All endpoints return JSON responses. Error responses follow this format:</p>
-        <div class="url">
-            {"code": 404, "error": true, "description": "404 Not Found"}
-        </div>
-
-        <h2>⚠️ Rate Limiting</h2>
-        <p>This API includes built-in rate limiting (1 second delay between requests) to respect MyDramaList.com's servers. Please use responsibly.</p>
-
-        <div class="footer">
+        <!-- Footer -->
+        <footer class="text-center text-gray-500 text-sm mt-12 py-6 border-t border-gray-800">
             <p>Built with FastAPI • Deployed on Vercel • Powered by BeautifulSoup4</p>
-            <p><strong>Note:</strong> This API is for educational purposes only. Please respect MyDramaList.com's terms of service.</p>
-        </div>
+            <p class="mt-1"><strong>Note:</strong> This API is for educational purposes only. Please respect MyDramaList.com's terms of service.</p>
+        </footer>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const apiUrl = 'https://my-drama-list-unofficial-api.vercel.app';
+            const endpointsGrid = document.getElementById('endpoints-grid');
+            const responseCodeEl = document.getElementById('response-code');
+            const copyBtn = document.getElementById('copy-btn');
+
+            const endpoints = [
+                {
+                    method: 'GET',
+                    path: '/api/search/q/{param}',
+                    description: 'Search for dramas by query.',
+                    placeholder: 'my demon',
+                },
+                {
+                    method: 'GET',
+                    path: '/api/id/{param}',
+                    description: 'Get drama details by slug.',
+                    placeholder: '746993-my-demon'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/id/{param}/cast',
+                    description: 'Get cast information.',
+                    placeholder: '746993-my-demon'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/id/{param}/episodes',
+                    description: 'Get episode details.',
+                    placeholder: '746993-my-demon'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/id/{param}/reviews',
+                    description: 'Get drama reviews.',
+                    placeholder: '746993-my-demon'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/people/{param}',
+                    description: 'Get person details by ID.',
+                    placeholder: '14472-song-kang'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/seasonal/{param}',
+                    description: 'Get seasonal dramas (year/quarter).',
+                    placeholder: '2023/4'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/list/{param}',
+                    description: 'Get a specific drama list by ID.',
+                    placeholder: 'p1R8nrJ3'
+                },
+                {
+                    method: 'GET',
+                    path: '/api/dramalist/{param}',
+                    description: 'Get a user\'s drama list by ID.',
+                    placeholder: 'CHOCOLATE'
+                },
+                 {
+                    method: 'GET',
+                    path: '/api/health',
+                    description: 'Health check endpoint.',
+                    placeholder: ''
+                },
+            ];
+
+            // Populate endpoint cards
+            endpoints.forEach(ep => {
+                const card = `
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 flex flex-col hover:border-purple-500/50 transition-all duration-300">
+                    <div>
+                        <div class="flex items-center mb-2">
+                            <span class="bg-green-500 text-white font-bold text-xs px-2 py-1 rounded-md mr-3">${ep.method}</span>
+                            <code class="font-mono text-sm text-purple-300 break-all">${ep.path}</code>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-4 h-10">${ep.description}</p>
+                    </div>
+                    <div class="mt-auto">
+                        <div class="flex gap-2 mt-4">
+                            <input type="text" ${ep.path.includes('{param}') ? '' : 'disabled'}
+                                class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm placeholder-gray-500 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 outline-none disabled:opacity-50"
+                                placeholder="${ep.placeholder}"
+                            />
+                            <button
+                                class="test-btn bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-1.5 rounded-md text-sm transition-colors"
+                                data-endpoint="${ep.path}" data-placeholder="${ep.placeholder}">
+                                Test
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+                endpointsGrid.innerHTML += card;
+            });
+            
+            // Add event listeners to all test buttons
+            document.querySelectorAll('.test-btn').forEach(button => {
+                button.addEventListener('click', handleTestClick);
+            });
+
+            // Handle copy button click
+             copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(responseCodeEl.textContent);
+                copyBtn.title = 'Copied!';
+                const originalIcon = copyBtn.innerHTML;
+                copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
+
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalIcon;
+                    copyBtn.title = 'Copy to clipboard';
+                }, 2000);
+            });
+
+            async function handleTestClick(event) {
+                const button = event.currentTarget;
+                const endpointPath = button.dataset.endpoint;
+                const placeholder = button.dataset.placeholder;
+                const inputField = button.previousElementSibling;
+                const inputValue = inputField.value.trim() || placeholder;
+
+                let fullUrl = apiUrl + endpointPath;
+
+                if(endpointPath.includes('{param}')) {
+                   fullUrl = apiUrl + endpointPath.replace('{param}', encodeURIComponent(inputValue));
+                }
+                
+                responseCodeEl.parentElement.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                responseCodeEl.textContent = 'Fetching data...';
+                
+                try {
+                    const response = await fetch(fullUrl);
+                    const data = await response.json();
+                    
+                    responseCodeEl.textContent = JSON.stringify(data, null, 2);
+
+                } catch (error) {
+                    console.error("API call failed:", error);
+                    responseCodeEl.textContent = `Error: Could not fetch from the API.\n\n${error.message}\n\nPlease check the browser console for more details.`;
+                }
+            }
+        });
+    </script>
 </body>
 </html>
