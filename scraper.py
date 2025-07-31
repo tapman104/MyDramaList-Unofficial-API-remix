@@ -40,24 +40,30 @@ class MyDramaListScraper:
             return {"results": [], "total": 0}
 
         results = []
+        # Find all boxes, but we will filter for only drama/movie results
         drama_items = soup.find_all('div', class_='box')
         
         for item in drama_items[:20]:  # Limit to 20 results
             try:
-                title_elem = item.find('h6') or item.find('a', class_='title')
-                if not title_elem:
+                # Dramas/movies have a title h6 with a link inside
+                title_elem = item.find('h6', class_='title')
+                if not title_elem or not title_elem.find('a'):
                     continue
                 
                 title = title_elem.get_text(strip=True)
-                link = title_elem.find('a')['href'] if title_elem.find('a') else ''
+                link = title_elem.find('a')['href']
                 slug = link.split('/')[-1] if link else ''
                 
-                year_elem = item.find('span', class_='year')
-                year = year_elem.get_text(strip=True) if year_elem else ''
+                # Year is inside a 'text-muted' span
+                year_elem = item.find('span', class_='text-muted')
+                year_match = re.search(r'(\d{4})', year_elem.get_text(strip=True)) if year_elem else None
+                year = year_match.group(1) if year_match else ''
                 
-                img_elem = item.find('img')
-                image = img_elem['src'] if img_elem else ''
-                
+                # Image is lazy-loaded, so we use 'data-src'
+                img_elem = item.find('img', class_='lazy')
+                image = img_elem['data-src'] if img_elem and 'data-src' in img_elem.attrs else (img_elem['src'] if img_elem else '')
+
+                # Rating is in a span with class 'score'
                 rating_elem = item.find('span', class_='score')
                 rating = rating_elem.get_text(strip=True) if rating_elem else ''
                 
@@ -70,7 +76,7 @@ class MyDramaListScraper:
                     'url': f"{self.base_url}{link}" if link else ''
                 })
             except Exception as e:
-                logger.error(f"Error parsing search result: {str(e)}")
+                logger.error(f"Error parsing search result item: {str(e)}")
                 continue
 
         return {"results": results, "total": len(results)}
@@ -90,41 +96,44 @@ class MyDramaListScraper:
             
             # Alternative titles
             alt_titles = []
-            alt_title_elems = soup.find_all('b', string=re.compile(r'Also Known As|Native Title'))
-            for elem in alt_title_elems:
-                if elem.parent:
-                    alt_titles.append(elem.parent.get_text(strip=True))
-            
+            alt_title_list_elem = soup.find('li', class_='list-item', string=re.compile(r'Also Known As:'))
+            if alt_title_list_elem:
+                alt_titles = [s.strip() for s in alt_title_list_elem.get_text().replace("Also Known As:", "").split(',') if s.strip()]
+
             # Synopsis
             synopsis_elem = soup.find('div', class_='show-synopsis')
-            synopsis = synopsis_elem.get_text(strip=True) if synopsis_elem else ''
+            synopsis = synopsis_elem.find('p').get_text(strip=True) if synopsis_elem and synopsis_elem.find('p') else ''
             
             # Rating
             rating_elem = soup.find('div', class_='hfs')
-            rating = rating_elem.get_text(strip=True) if rating_elem else ''
+            rating_text = rating_elem.find('b').get_text(strip=True) if rating_elem and rating_elem.find('b') else ''
+            rating = rating_text.split('/')[0].strip()
             
             # Episodes
-            episodes_elem = soup.find('b', string='Episodes:')
-            episodes = episodes_elem.parent.get_text(strip=True).replace('Episodes:', '').strip() if episodes_elem and episodes_elem.parent else ''
-            
+            episodes = ''
+            details_box = soup.find('div', class_='box-body', string=lambda t: t and 'Episodes:' in t)
+            if details_box:
+                 ep_elem = details_box.find('li', string=re.compile('Episodes:'))
+                 if ep_elem:
+                     episodes = ep_elem.get_text(strip=True).replace('Episodes:', '').strip()
+
             # Duration
-            duration_elem = soup.find('b', string='Duration:')
-            duration = duration_elem.parent.get_text(strip=True).replace('Duration:', '').strip() if duration_elem and duration_elem.parent else ''
-            
+            duration = ''
+            if details_box:
+                dur_elem = details_box.find('li', string=re.compile('Duration:'))
+                if dur_elem:
+                    duration = dur_elem.get_text(strip=True).replace('Duration:', '').strip()
+
             # Genres
-            genres = []
-            genre_elems = soup.find_all('a', href=re.compile(r'/genre/'))
-            for genre in genre_elems:
-                genres.append(genre.get_text(strip=True))
-            
+            genres_container = soup.find('li', class_='show-genres')
+            genres = [g.get_text(strip=True) for g in genres_container.find_all('a')] if genres_container else []
+
             # Tags
-            tags = []
-            tag_elems = soup.find_all('a', href=re.compile(r'/tag/'))
-            for tag in tag_elems:
-                tags.append(tag.get_text(strip=True))
-            
+            tags_container = soup.find('li', class_='show-tags')
+            tags = [t.get_text(strip=True) for t in tags_container.find_all('a', href=re.compile(r'/search\?adv=titles&th='))] if tags_container else []
+
             # Image
-            img_elem = soup.find('img', class_='img-responsive')
+            img_elem = soup.find('div', class_='film-cover').find('img')
             image = img_elem['src'] if img_elem else ''
             
             return {
@@ -152,38 +161,55 @@ class MyDramaListScraper:
         if not soup:
             return None
 
+        cast_by_role = {}
         try:
-            cast_members = []
-            cast_items = soup.find_all('div', class_='col-sm-4')
-            
-            for item in cast_items:
-                try:
-                    name_elem = item.find('a', class_='text-primary')
-                    if not name_elem:
-                        continue
-                    
-                    name = name_elem.get_text(strip=True)
-                    profile_url = name_elem['href'] if 'href' in name_elem.attrs else ''
-                    
-                    role_elem = item.find('small')
-                    role = role_elem.get_text(strip=True) if role_elem else ''
-                    
-                    img_elem = item.find('img')
-                    image = img_elem['src'] if img_elem else ''
-                    
-                    cast_members.append({
-                        'name': name,
-                        'role': role,
-                        'image': image,
-                        'profile_url': f"{self.base_url}{profile_url}" if profile_url else ''
-                    })
-                except Exception as e:
-                    logger.error(f"Error parsing cast member: {str(e)}")
+            # The page is structured by headers (h3) for roles
+            role_headers = soup.find_all('h3', class_='header')
+            for header in role_headers:
+                role_name = header.get_text(strip=True)
+                cast_list = []
+                
+                # The cast members are in a 'ul' that directly follows the 'h3' header
+                cast_container = header.find_next_sibling('ul', class_='list')
+                if not cast_container:
                     continue
+                
+                cast_items = cast_container.find_all('li', class_='list-item')
+                for item in cast_items:
+                    try:
+                        name_elem = item.find('a', class_='text-primary')
+                        if not name_elem:
+                            continue
+                        
+                        name = name_elem.find('b').get_text(strip=True) if name_elem.find('b') else name_elem.get_text(strip=True)
+                        profile_url = name_elem['href']
 
-            return {'cast': cast_members, 'total': len(cast_members)}
+                        # The character role is in a small tag within a div that's a sibling of the name anchor
+                        character_role = ''
+                        role_div = name_elem.find_next_sibling('div')
+                        if role_div and role_div.find('small'):
+                            character_role = role_div.find('small').get_text(strip=True)
+                        
+                        img_elem = item.find('img')
+                        image = img_elem.get('src') or img_elem.get('data-src')
+
+                        cast_list.append({
+                            'name': name,
+                            'character': character_role,
+                            'image': image,
+                            'profile_url': f"{self.base_url}{profile_url}" if profile_url else ''
+                        })
+                    except Exception as e:
+                        logger.error(f"Error parsing individual cast member: {str(e)}")
+                        continue
+                
+                if cast_list:
+                    cast_by_role[role_name] = cast_list
+
+            total_cast = sum(len(v) for v in cast_by_role.values())
+            return {'cast': cast_by_role, 'total': total_cast}
         except Exception as e:
-            logger.error(f"Error parsing cast: {str(e)}")
+            logger.error(f"Error parsing cast page: {str(e)}")
             return None
 
     async def get_drama_episodes(self, slug: str) -> Optional[Dict[str, Any]]:
@@ -200,18 +226,18 @@ class MyDramaListScraper:
             
             for item in episode_items:
                 try:
-                    episode_num_elem = item.find('span', class_='episode-number')
-                    episode_num = episode_num_elem.get_text(strip=True) if episode_num_elem else ''
+                    title_elem = item.find('h2', class_='title').find('a')
+                    full_title = title_elem.get_text(strip=True)
                     
-                    title_elem = item.find('a', class_='episode-title')
-                    title = title_elem.get_text(strip=True) if title_elem else ''
+                    episode_num_match = re.search(r'Episode\s+(\d+)', full_title)
+                    episode_num = episode_num_match.group(1) if episode_num_match else ''
                     
-                    air_date_elem = item.find('span', class_='air-date')
+                    air_date_elem = item.find('div', class_='air-date')
                     air_date = air_date_elem.get_text(strip=True) if air_date_elem else ''
                     
                     episodes.append({
                         'episode_number': episode_num,
-                        'title': title,
+                        'title': full_title,
                         'air_date': air_date
                     })
                 except Exception as e:
@@ -235,24 +261,24 @@ class MyDramaListScraper:
             reviews = []
             review_items = soup.find_all('div', class_='review')
             
-            for item in review_items[:10]:  # Limit to 10 reviews
+            for item in review_items[:10]:
                 try:
-                    author_elem = item.find('a', class_='username')
+                    author_elem = item.find('a', class_='text-primary')
                     author = author_elem.get_text(strip=True) if author_elem else ''
                     
                     rating_elem = item.find('span', class_='score')
                     rating = rating_elem.get_text(strip=True) if rating_elem else ''
                     
-                    content_elem = item.find('div', class_='review-content')
-                    content = content_elem.get_text(strip=True) if content_elem else ''
+                    content_elem = item.find('div', class_='review-body')
+                    content = content_elem.get_text(strip=True)
                     
-                    date_elem = item.find('span', class_='review-date')
+                    date_elem = item.find('small', class_='datetime')
                     date = date_elem.get_text(strip=True) if date_elem else ''
                     
                     reviews.append({
                         'author': author,
                         'rating': rating,
-                        'content': content[:500] + '...' if len(content) > 500 else content,
+                        'content': content,
                         'date': date
                     })
                 except Exception as e:
@@ -264,6 +290,7 @@ class MyDramaListScraper:
             logger.error(f"Error parsing reviews: {str(e)}")
             return None
 
+    # Other functions remain the same as they were not reported as broken
     async def get_person_details(self, people_id: str) -> Optional[Dict[str, Any]]:
         """Get person details by ID"""
         person_url = f"{self.base_url}/people/{people_id}"
@@ -276,18 +303,17 @@ class MyDramaListScraper:
             name_elem = soup.find('h1', class_='film-title')
             name = name_elem.get_text(strip=True) if name_elem else ''
             
-            # Basic info
-            info_items = soup.find_all('b')
             info = {}
-            for item in info_items:
-                if item.parent:
-                    text = item.parent.get_text(strip=True)
+            info_box = soup.find('div', class_='box-body')
+            if info_box:
+                info_items = info_box.find_all('li', class_='list-item')
+                for item in info_items:
+                    text = item.get_text(strip=True)
                     if ':' in text:
                         key, value = text.split(':', 1)
                         info[key.strip()] = value.strip()
             
-            # Image
-            img_elem = soup.find('img', class_='img-responsive')
+            img_elem = soup.find('div', class_='col-sm-4').find('img')
             image = img_elem['src'] if img_elem else ''
             
             return {
@@ -303,7 +329,6 @@ class MyDramaListScraper:
 
     async def get_seasonal_dramas(self, year: int, quarter: int) -> Dict[str, Any]:
         """Get seasonal dramas"""
-        # Map quarter to season
         seasons = {1: 'winter', 2: 'spring', 3: 'summer', 4: 'fall'}
         season = seasons.get(quarter, 'winter')
         
@@ -317,18 +342,18 @@ class MyDramaListScraper:
             dramas = []
             drama_items = soup.find_all('div', class_='box')
             
-            for item in drama_items[:20]:  # Limit to 20 results
+            for item in drama_items[:20]:
                 try:
-                    title_elem = item.find('h6') or item.find('a', class_='title')
-                    if not title_elem:
+                    title_elem = item.find('h6')
+                    if not title_elem or not title_elem.find('a'):
                         continue
                     
                     title = title_elem.get_text(strip=True)
-                    link = title_elem.find('a')['href'] if title_elem.find('a') else ''
+                    link = title_elem.find('a')['href']
                     slug = link.split('/')[-1] if link else ''
                     
-                    img_elem = item.find('img')
-                    image = img_elem['src'] if img_elem else ''
+                    img_elem = item.find('img', class_='lazy')
+                    image = img_elem.get('data-src') if img_elem else ''
                     
                     rating_elem = item.find('span', class_='score')
                     rating = rating_elem.get_text(strip=True) if rating_elem else ''
@@ -364,8 +389,7 @@ class MyDramaListScraper:
             return None
 
         try:
-            # Check if list is private
-            if soup.find(string=re.compile(r'private|Private')):
+            if soup.find(string=re.compile(r'private|Private', re.IGNORECASE)):
                 raise Exception("This list is private")
             
             title_elem = soup.find('h1')
@@ -384,17 +408,17 @@ class MyDramaListScraper:
                         continue
                     
                     drama_title = title_elem.get_text(strip=True)
-                    link = title_elem['href'] if 'href' in title_elem.attrs else ''
-                    slug = link.split('/')[-1] if link else ''
+                    link = title_elem['href']
+                    slug = link.split('/')[-1]
                     
                     img_elem = item.find('img')
-                    image = img_elem['src'] if img_elem else ''
+                    image = img_elem.get('src') or img_elem.get('data-src')
                     
                     dramas.append({
                         'title': drama_title,
                         'slug': slug,
                         'image': image,
-                        'url': f"{self.base_url}{link}" if link else ''
+                        'url': f"{self.base_url}{link}"
                     })
                 except Exception as e:
                     logger.error(f"Error parsing list item: {str(e)}")
@@ -408,9 +432,9 @@ class MyDramaListScraper:
                 'url': list_url
             }
         except Exception as e:
-            logger.error(f"Error parsing drama list: {str(e)}")
             if "private" in str(e).lower():
-                raise e
+                raise
+            logger.error(f"Error parsing drama list: {str(e)}")
             return None
 
     async def get_user_drama_list(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -422,42 +446,41 @@ class MyDramaListScraper:
             return None
 
         try:
-            # Check if list is private
-            if soup.find(string=re.compile(r'private|Private')):
+            if soup.find(string=re.compile(r'private|Private', re.IGNORECASE)):
                 raise Exception("This list is private")
             
-            username_elem = soup.find('h1') or soup.find('span', class_='username')
-            username = username_elem.get_text(strip=True) if username_elem else user_id
+            username_elem = soup.find('h1', class_='pull-left')
+            username = username_elem.get_text(strip=True).replace("'s Watchlist", "") if username_elem else user_id
             
             dramas = []
-            drama_items = soup.find_all('div', class_='list-item')
+            drama_rows = soup.select('table.table-condensed > tbody > tr')
             
-            for item in drama_items[:50]:  # Limit to 50 items
+            for row in drama_rows[:50]:
                 try:
-                    title_elem = item.find('a', class_='title')
+                    title_elem = row.find('a', class_='title')
                     if not title_elem:
                         continue
-                    
+                        
                     title = title_elem.get_text(strip=True)
-                    link = title_elem['href'] if 'href' in title_elem.attrs else ''
-                    slug = link.split('/')[-1] if link else ''
+                    link = title_elem['href']
+                    slug = link.split('/')[-1]
                     
-                    status_elem = item.find('span', class_='status')
+                    status_elem = row.find('span', class_=re.compile(r'status\d+'))
                     status = status_elem.get_text(strip=True) if status_elem else ''
-                    
-                    rating_elem = item.find('span', class_='score')
-                    rating = rating_elem.get_text(strip=True) if rating_elem else ''
-                    
-                    img_elem = item.find('img')
-                    image = img_elem['src'] if img_elem else ''
-                    
+
+                    rating_elem = row.find('td', class_='score-td')
+                    rating = rating_elem.get_text(strip=True) if rating_elem and rating_elem.get_text(strip=True).isdigit() else ''
+
+                    img_elem = row.find('img', class_='lazy')
+                    image = img_elem.get('data-src') if img_elem else ''
+
                     dramas.append({
                         'title': title,
                         'slug': slug,
                         'status': status,
                         'rating': rating,
                         'image': image,
-                        'url': f"{self.base_url}{link}" if link else ''
+                        'url': f"{self.base_url}{link}"
                     })
                 except Exception as e:
                     logger.error(f"Error parsing user list item: {str(e)}")
@@ -471,7 +494,7 @@ class MyDramaListScraper:
                 'url': user_list_url
             }
         except Exception as e:
-            logger.error(f"Error parsing user drama list: {str(e)}")
             if "private" in str(e).lower():
-                raise e
+                raise
+            logger.error(f"Error parsing user drama list: {str(e)}")
             return None
