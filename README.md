@@ -4,6 +4,8 @@ A serverless FastAPI-based web scraper for MyDramaList.com, designed for deploym
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FB1PL0B%2FMyDramaList-Unofficial-API)
 
+> **Note**: This project is inspired from [@tbdsux/kuryana](https://github.com/tbdsux/kuryana). Special thanks to [@tbdsux](https://github.com/tbdsux)!
+
 ## 🚀 Features
 
 - **Comprehensive API**: 9 endpoints covering drama search, details, cast, episodes, reviews, people, seasonal data, lists, and user drama lists
