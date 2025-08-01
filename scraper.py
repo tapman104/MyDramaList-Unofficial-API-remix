@@ -1,292 +1,517 @@
-# scraper.py (Final Corrected Version)
-
+import requests
+from bs4 import BeautifulSoup
 import logging
+import asyncio
+from typing import Dict, List, Optional, Any
 import re
-from typing import Any, Dict, Optional
-import httpx
-from aiolimiter import AsyncLimiter
-from selectolax.parser import HTMLParser, Node
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-)
 
 logger = logging.getLogger(__name__)
 
-# --- Custom Exception for Scraper ---
-
-class ScraperError(Exception):
-    """Custom exception for scraper-specific errors."""
-    def __init__(self, message, status_code: int = 500):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
-
-# --- Optimized and Resilient Scraper Class ---
-
-class OptimizedMyDramaListScraper:
-    def __init__(self, client: httpx.AsyncClient, limiter: AsyncLimiter):
+class MyDramaListScraper:
+    def __init__(self):
         self.base_url = "https://mydramalist.com"
-        self.client = client
-        self.limiter = limiter
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+        self.session = requests.Session()
+        self.session.headers.update(self.headers)
 
-    @retry(
-        wait=wait_exponential(min=1, max=10),
-        stop=stop_after_attempt(3),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TimeoutException)),
-        reraise=True
-    )
-    async def _make_request(self, url: str) -> HTMLParser:
-        async with self.limiter:
-            try:
-                response = await self.client.get(url)
-                response.raise_for_status()
-                
-                text_content = response.text.lower()
-                if "page not found" in text_content and "404" in text_content:
-                    raise ScraperError("Resource not found on MyDramaList.", status_code=404)
-                if "this list is private" in text_content or \
-                   "this user's list is private" in text_content or \
-                   "this resource is private" in text_content:
-                    raise ScraperError("This resource is private or not found.", status_code=404)
+    def _make_request(self, url: str) -> Optional[BeautifulSoup]:
+        """Make HTTP request and return BeautifulSoup object"""
+        try:
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            return BeautifulSoup(response.content, 'html.parser')
+        except requests.RequestException as e:
+            logger.error(f"Request failed for {url}: {str(e)}")
+            return None
 
-                return HTMLParser(response.content)
-            
-            except httpx.HTTPStatusError as e:
-                logger.warning(f"Request to {url} failed with status {e.response.status_code}. Retrying...")
-                status_code = e.response.status_code
-                if status_code == 404:
-                    raise ScraperError("Resource not found on MyDramaList.", status_code=404) from e
-                if status_code == 429:
-                     raise ScraperError(f"Rate limited by remote server on {url}", status_code=429) from e
-                raise
-            except httpx.RequestError as e:
-                logger.error(f"Request failed for {url}: {str(e)}")
-                raise ScraperError(f"Network error accessing {url}: {e}", status_code=502) from e
-
-    # --- Robust Helper Functions ---
-    def _get_text(self, node: Optional[Node], selector: str, default: str = "") -> str:
-        """Safely gets text from a node using a selector."""
-        element = node.css_first(selector) if node else None
-        return element.text(strip=True) if element else default
-        
-    def _get_attrib(self, node: Optional[Node], selector: str, attribute: str, default: str = "") -> str:
-        """Safely gets an attribute from a node using a selector."""
-        element = node.css_first(selector) if node else None
-        return element.attributes.get(attribute, default) if element else default
-
-    def _find_detail_by_key(self, tree: HTMLParser, key: str) -> str:
-        """Robustly finds a detail value from a list based on its bolded key."""
-        list_items = tree.css("div.box-body > ul.list > li, div.box-body > ul.list-item > li")
-        for item in list_items:
-            key_node = item.css_first('b')
-            if key_node and key in key_node.text():
-                # Remove the key itself from the text content to get the value
-                return item.text(strip=True).replace(key_node.text(strip=True), "").strip()
-        return "N/A"
-
-    # --- API Methods ---
-    
     async def search_dramas(self, query: str) -> Dict[str, Any]:
+        """Search for dramas by query"""
         search_url = f"{self.base_url}/search?q={query}"
-        tree = await self._make_request(search_url)
+        soup = self._make_request(search_url)
+        
+        if not soup:
+            return {"results": [], "total": 0}
+
         results = []
-        for item in tree.css('div.box')[:20]:
-            title_node = item.css_first('h6.title > a')
-            if not title_node: continue
-
-            link = title_node.attributes.get('href', '')
-            year_match = re.search(r'(\d{4})', self._get_text(item, 'span.text-muted'))
-            
-            results.append({
-                'title': title_node.text(strip=True),
-                'slug': link.split('/')[-1] if link else '',
-                'year': year_match.group(1) if year_match else '',
-                'image': self._get_attrib(item, 'img.lazy', 'data-src') or self._get_attrib(item, 'img', 'src'),
-                'rating': self._get_text(item, 'span.score'),
-                'url': f"{self.base_url}{link}" if link else ''
-            })
-        return {"results": results, "total": len(results)}
-
-    async def get_drama_details(self, slug: str) -> Dict[str, Any]:
-        """(Corrected Logic)"""
-        drama_url = f"{self.base_url}/{slug}"
-        tree = await self._make_request(drama_url)
-
-        alt_titles_text = self._find_detail_by_key(tree, "Also Known As:")
+        # Find all boxes, but we will filter for only drama/movie results
+        drama_items = soup.find_all('div', class_='box')
         
-        return {
-            'title': self._get_text(tree, 'h1.film-title'),
-            'slug': slug,
-            'synopsis': self._get_text(tree, 'div.show-synopsis > p, div.show-synopsis', "Not available."),
-            'rating': self._get_text(tree, 'div.hfs > b').split('/')[0].strip(),
-            'episodes': self._find_detail_by_key(tree, "Episodes:"),
-            'duration': self._find_detail_by_key(tree, "Duration:"),
-            'genres': [g.text(strip=True) for g in tree.css('li.show-genres a')],
-            'tags': [t.text(strip=True) for t in tree.css('li.show-tags a')],
-            'image': self._get_attrib(tree, 'div.film-cover img', 'src'),
-            'alternative_titles': [s.strip() for s in alt_titles_text.split(',') if s.strip()] if alt_titles_text != "N/A" else [],
-            'url': drama_url
-        }
-
-    async def get_drama_cast(self, slug: str) -> Dict[str, Any]:
-        """(Corrected Logic) - More resilient iteration over cast sections."""
-        cast_url = f"{self.base_url}/{slug}/cast"
-        tree = await self._make_request(cast_url)
-        cast_by_role = {}
-
-        # Iterate over all h3 headers, which represent roles (e.g., 'Main Role').
-        role_headers = tree.css('h3.header.m-b-sm')
-        for header in role_headers:
-            role_name = header.text(strip=True)
-            if not role_name: continue
-
-            # The list of actors is in the <ul> element that is the next sibling.
-            actor_list_node = header.next_node
-            if not actor_list_node or actor_list_node.tag != 'ul':
-                continue # Skip if the next node isn't the expected actor list.
-
-            cast_list = []
-            for item in actor_list_node.css('li'):
-                # Safely extract actor name
-                name = self._get_text(item, 'a.text-primary b')
-                if not name: continue
-
-                # Safely extract other details using helper functions
-                cast_list.append({
-                    'name': name,
-                    'character': self._get_text(item, 'div > small'),
-                    'image': self._get_attrib(item, 'img', 'src') or self._get_attrib(item, 'img', 'data-src'),
-                    'profile_url': self.base_url + self._get_attrib(item, 'a.text-primary', 'href')
-                })
-
-            if cast_list:
-                cast_by_role[role_name] = cast_list
-
-        total_cast = sum(len(v) for v in cast_by_role.values())
-        return {'cast': cast_by_role, 'total': total_cast}
-
-    # The remaining methods have been re-verified and their logic is stable.
-    
-    async def get_drama_episodes(self, slug: str) -> Dict[str, Any]:
-        episodes_url = f"{self.base_url}/{slug}/episodes"
-        tree = await self._make_request(episodes_url)
-        episodes = []
-        for item in tree.css('div.episode'):
-            full_title = self._get_text(item, 'h2.title > a')
-            ep_match = re.search(r'Episode\s+(\d+)', full_title)
-            episodes.append({
-                'episode_number': ep_match.group(1) if ep_match else '',
-                'title': full_title,
-                'air_date': self._get_text(item, 'div.air-date')
-            })
-        return {'episodes': episodes, 'total': len(episodes)}
-
-    async def get_drama_reviews(self, slug: str) -> Dict[str, Any]:
-        reviews_url = f"{self.base_url}/{slug}/reviews"
-        tree = await self._make_request(reviews_url)
-        reviews = []
-        for item in tree.css('div.review')[:10]:
-            reviews.append({
-                'author': self._get_text(item, 'a.text-primary'),
-                'rating': self._get_text(item, 'span.score'),
-                'content': self._get_text(item, 'div.review-body'),
-                'date': self._get_text(item, 'small.datetime'),
-            })
-        return {'reviews': reviews, 'total': len(reviews)}
-
-    async def get_person_details(self, people_id: str) -> Dict[str, Any]:
-        person_url = f"{self.base_url}/people/{people_id}"
-        tree = await self._make_request(person_url)
-        info = {}
-        for item in tree.css("div.box.clear div.box-body ul.list li.list-item"):
-            text = item.text(strip=True)
-            if ':' in text:
-                key, value = text.split(':', 1)
-                info[key.strip()] = value.strip()
-        return {
-            'name': self._get_text(tree, 'h1.film-title'),
-            'id': people_id,
-            'image': self._get_attrib(tree, "div.content-side .box-body img.img-responsive", 'src'),
-            'info': info,
-            'url': person_url
-        }
-
-    async def get_seasonal_dramas(self, year: int, quarter: int) -> Dict[str, Any]:
-        seasons = {1: 'winter', 2: 'spring', 3: 'summer', 4: 'fall'}
-        season = seasons.get(quarter)
-        if not season:
-            raise ScraperError("Invalid quarter provided. Must be 1, 2, 3, or 4.", 400)
-            
-        seasonal_url = f"{self.base_url}/shows/top?year={year}&season={season}"
-        tree = await self._make_request(seasonal_url)
-        
-        dramas = []
-        for item in tree.css('div.box')[:20]:
-            title_node = item.css_first('h6 > a')
-            if not title_node: continue
-            
-            link = title_node.attributes.get('href', '')
-            dramas.append({
-                'title': title_node.text(strip=True),
-                'slug': link.split('/')[-1] if link else '',
-                'image': self._get_attrib(item, 'img.lazy', 'data-src') or self._get_attrib(item, 'img', 'src'),
-                'rating': self._get_text(item, 'span.score'),
-                'url': f"{self.base_url}{link}" if link else ''
-            })
-        return {"dramas": dramas, "total": len(dramas), "year": year, "quarter": quarter, "season": season}
-
-    async def get_drama_list(self, list_id: str) -> Dict[str, Any]:
-        list_url = f"{self.base_url}/list/{list_id}"
-        tree = await self._make_request(list_url)
-        
-        dramas = []
-        for item in tree.css('ul.list-group li.list-group-item'):
-            title_node = item.css_first('h2.title > a')
-            if not title_node: continue
-            
-            link = title_node.attributes.get('href', '')
-            dramas.append({
-                'title': title_node.text(strip=True),
-                'slug': link.split('/')[-1] if link else '',
-                'image': self._get_attrib(item, 'img.lazy', 'data-src') or self._get_attrib(item, 'img', 'src'),
-                'url': f"{self.base_url}{link}" if link else ''
-            })
-        return {
-            'title': self._get_text(tree, 'h1'),
-            'description': self._get_text(tree, 'div.box-header .description'),
-            'dramas': dramas,
-            'total': len(dramas),
-            'url': list_url
-        }
-
-    async def get_user_drama_list(self, user_id: str) -> Dict[str, Any]:
-        user_list_url = f"{self.base_url}/dramalist/{user_id}"
-        tree = await self._make_request(user_list_url)
-        
-        dramas = []
-        for section in tree.css('div.mdl-style-list'):
-            status = self._get_text(section, 'h3.mdl-style-list-label', 'Unknown')
-            for row in section.css('table > tbody > tr'):
-                title_node = row.css_first('a.title')
-                if not title_node: continue
+        for item in drama_items[:20]:  # Limit to 20 results
+            try:
+                # Dramas/movies have a title h6 with a link inside
+                title_elem = item.find('h6', class_='title')
+                if not title_elem or not title_elem.find('a'):
+                    continue
                 
-                link = title_node.attributes.get('href', '')
-                dramas.append({
-                    'title': title_node.text(strip=True),
-                    'slug': link.split('/')[-1] if link else '',
-                    'status': status,
-                    'rating': self._get_text(row, 'td.mdl-style-col-score .score'),
-                    'image': '',
+                title = title_elem.get_text(strip=True)
+                link = title_elem.find('a')['href']
+                slug = link.split('/')[-1] if link else ''
+                
+                # Year is inside a 'text-muted' span
+                year_elem = item.find('span', class_='text-muted')
+                year_match = re.search(r'(\d{4})', year_elem.get_text(strip=True)) if year_elem else None
+                year = year_match.group(1) if year_match else ''
+                
+                # Image is lazy-loaded, so we use 'data-src'
+                img_elem = item.find('img', class_='lazy')
+                image = img_elem['data-src'] if img_elem and 'data-src' in img_elem.attrs else (img_elem['src'] if img_elem else '')
+
+                # Rating is in a span with class 'score'
+                rating_elem = item.find('span', class_='score')
+                rating = rating_elem.get_text(strip=True) if rating_elem else ''
+                
+                results.append({
+                    'title': title,
+                    'slug': slug,
+                    'year': year,
+                    'image': image,
+                    'rating': rating,
                     'url': f"{self.base_url}{link}" if link else ''
                 })
+            except Exception as e:
+                logger.error(f"Error parsing search result item: {str(e)}")
+                continue
+
+        return {"results": results, "total": len(results)}
+
+    async def get_drama_details(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get drama details by slug"""
+        drama_url = f"{self.base_url}/{slug}"
+        soup = self._make_request(drama_url)
         
-        return {
-            'username': self._get_text(tree, 'h1.mdl-style-header a', user_id),
-            'user_id': user_id,
-            'dramas': dramas,
-            'total': len(dramas),
-            'url': user_list_url
-        }
+        if not soup:
+            return None
+
+        try:
+            # Basic info
+            title_elem = soup.find('h1', class_='film-title')
+            title = title_elem.get_text(strip=True) if title_elem else ''
+            
+            # Alternative titles
+            alt_titles = []
+            alt_title_list_elem = soup.find('li', class_='list-item', string=re.compile(r'Also Known As:'))
+            if alt_title_list_elem:
+                alt_titles = [s.strip() for s in alt_title_list_elem.get_text().replace("Also Known As:", "").split(',') if s.strip()]
+
+            # Synopsis
+            synopsis_elem = soup.find('div', class_='show-synopsis')
+            synopsis = synopsis_elem.find('p').get_text(strip=True) if synopsis_elem and synopsis_elem.find('p') else ''
+            
+            # Rating
+            rating_elem = soup.find('div', class_='hfs')
+            rating_text = rating_elem.find('b').get_text(strip=True) if rating_elem and rating_elem.find('b') else ''
+            rating = rating_text.split('/')[0].strip()
+            
+            # Episodes
+            episodes = ''
+            details_box = soup.find('div', class_='box-body', string=lambda t: t and 'Episodes:' in t)
+            if details_box:
+                 ep_elem = details_box.find('li', string=re.compile('Episodes:'))
+                 if ep_elem:
+                     episodes = ep_elem.get_text(strip=True).replace('Episodes:', '').strip()
+
+            # Duration
+            duration = ''
+            if details_box:
+                dur_elem = details_box.find('li', string=re.compile('Duration:'))
+                if dur_elem:
+                    duration = dur_elem.get_text(strip=True).replace('Duration:', '').strip()
+
+            # Genres
+            genres_container = soup.find('li', class_='show-genres')
+            genres = [g.get_text(strip=True) for g in genres_container.find_all('a')] if genres_container else []
+
+            # Tags
+            tags_container = soup.find('li', class_='show-tags')
+            tags = [t.get_text(strip=True) for t in tags_container.find_all('a', href=re.compile(r'/search\?adv=titles&th='))] if tags_container else []
+
+            # Image
+            img_elem = soup.find('div', class_='film-cover').find('img')
+            image = img_elem['src'] if img_elem else ''
+            
+            return {
+                'title': title,
+                'slug': slug,
+                'synopsis': synopsis,
+                'rating': rating,
+                'episodes': episodes,
+                'duration': duration,
+                'genres': genres,
+                'tags': tags,
+                'image': image,
+                'alternative_titles': alt_titles,
+                'url': drama_url
+            }
+        except Exception as e:
+            logger.error(f"Error parsing drama details: {str(e)}")
+            return None
+
+    async def get_drama_cast(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get cast information for a drama"""
+        cast_url = f"{self.base_url}/{slug}/cast"
+        soup = self._make_request(cast_url)
+        
+        if not soup:
+            return None
+
+        cast_by_role = {}
+        try:
+            # The page is structured by headers (h3) for roles
+            role_headers = soup.find_all('h3', class_='header')
+            for header in role_headers:
+                role_name = header.get_text(strip=True)
+                cast_list = []
+                
+                # The cast members are in a 'ul' that directly follows the 'h3' header
+                cast_container = header.find_next_sibling('ul', class_='list')
+                if not cast_container:
+                    continue
+                
+                cast_items = cast_container.find_all('li', class_='list-item')
+                for item in cast_items:
+                    try:
+                        name_elem = item.find('a', class_='text-primary')
+                        if not name_elem:
+                            continue
+                        
+                        name = name_elem.find('b').get_text(strip=True) if name_elem.find('b') else name_elem.get_text(strip=True)
+                        profile_url = name_elem['href']
+
+                        # The character role is in a small tag within a div that's a sibling of the name anchor
+                        character_role = ''
+                        role_div = name_elem.find_next_sibling('div')
+                        if role_div and role_div.find('small'):
+                            character_role = role_div.find('small').get_text(strip=True)
+                        
+                        img_elem = item.find('img')
+                        image = img_elem.get('src') or img_elem.get('data-src')
+
+                        cast_list.append({
+                            'name': name,
+                            'character': character_role,
+                            'image': image,
+                            'profile_url': f"{self.base_url}{profile_url}" if profile_url else ''
+                        })
+                    except Exception as e:
+                        logger.error(f"Error parsing individual cast member: {str(e)}")
+                        continue
+                
+                if cast_list:
+                    cast_by_role[role_name] = cast_list
+
+            total_cast = sum(len(v) for v in cast_by_role.values())
+            return {'cast': cast_by_role, 'total': total_cast}
+        except Exception as e:
+            logger.error(f"Error parsing cast page: {str(e)}")
+            return None
+
+    async def get_drama_episodes(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get episode details for a drama"""
+        episodes_url = f"{self.base_url}/{slug}/episodes"
+        soup = self._make_request(episodes_url)
+        
+        if not soup:
+            return None
+
+        try:
+            episodes = []
+            episode_items = soup.find_all('div', class_='episode')
+            
+            for item in episode_items:
+                try:
+                    title_elem = item.find('h2', class_='title').find('a')
+                    full_title = title_elem.get_text(strip=True)
+                    
+                    episode_num_match = re.search(r'Episode\s+(\d+)', full_title)
+                    episode_num = episode_num_match.group(1) if episode_num_match else ''
+                    
+                    air_date_elem = item.find('div', class_='air-date')
+                    air_date = air_date_elem.get_text(strip=True) if air_date_elem else ''
+                    
+                    episodes.append({
+                        'episode_number': episode_num,
+                        'title': full_title,
+                        'air_date': air_date
+                    })
+                except Exception as e:
+                    logger.error(f"Error parsing episode: {str(e)}")
+                    continue
+
+            return {'episodes': episodes, 'total': len(episodes)}
+        except Exception as e:
+            logger.error(f"Error parsing episodes: {str(e)}")
+            return None
+
+    async def get_drama_reviews(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get reviews for a drama"""
+        reviews_url = f"{self.base_url}/{slug}/reviews"
+        soup = self._make_request(reviews_url)
+        
+        if not soup:
+            return None
+
+        try:
+            reviews = []
+            review_items = soup.find_all('div', class_='review')
+            
+            for item in review_items[:10]:
+                try:
+                    author_elem = item.find('a', class_='text-primary')
+                    author = author_elem.get_text(strip=True) if author_elem else ''
+                    
+                    rating_elem = item.find('span', class_='score')
+                    rating = rating_elem.get_text(strip=True) if rating_elem else ''
+                    
+                    content_elem = item.find('div', class_='review-body')
+                    content = content_elem.get_text(strip=True)
+                    
+                    date_elem = item.find('small', class_='datetime')
+                    date = date_elem.get_text(strip=True) if date_elem else ''
+                    
+                    reviews.append({
+                        'author': author,
+                        'rating': rating,
+                        'content': content,
+                        'date': date
+                    })
+                except Exception as e:
+                    logger.error(f"Error parsing review: {str(e)}")
+                    continue
+
+            return {'reviews': reviews, 'total': len(reviews)}
+        except Exception as e:
+            logger.error(f"Error parsing reviews: {str(e)}")
+            return None
+
+    async def get_person_details(self, people_id: str) -> Optional[Dict[str, Any]]:
+        """Get person details by ID"""
+        person_url = f"{self.base_url}/people/{people_id}"
+        soup = self._make_request(person_url)
+        
+        if not soup:
+            return None
+
+        try:
+            name_elem = soup.find('h1', class_='film-title')
+            name = name_elem.get_text(strip=True) if name_elem else ''
+            
+            info = {}
+            # Target the sidebar details box which is more consistent
+            info_box = soup.select_one("div.box.clear.hidden-sm-down div.box-body")
+            # Fallback for mobile view if the sidebar is not found
+            if not info_box:
+                info_box = soup.select_one("div.hidden-md-up ul.list")
+
+            if info_box:
+                info_items = info_box.find_all('li', class_='list-item')
+                for item in info_items:
+                    text = item.get_text(strip=True)
+                    if ':' in text:
+                        key, value = text.split(':', 1)
+                        info[key.strip()] = value.strip()
+            
+            # Target the main profile image, often in the sidebar
+            img_elem = soup.select_one("div.content-side .box-body img.img-responsive")
+            if not img_elem: # Fallback to mobile image if sidebar image is not present
+                img_elem = soup.select_one('div.cover.hidden-md-up img.img-responsive')
+            
+            image = img_elem['src'] if img_elem else ''
+            
+            return {
+                'name': name,
+                'id': people_id,
+                'image': image,
+                'info': info,
+                'url': person_url
+            }
+        except Exception as e:
+            logger.error(f"Error parsing person details: {str(e)}")
+            return None
+
+    async def get_seasonal_dramas(self, year: int, quarter: int) -> Dict[str, Any]:
+        """Get seasonal dramas"""
+        seasons = {1: 'winter', 2: 'spring', 3: 'summer', 4: 'fall'}
+        season = seasons.get(quarter, 'winter')
+        
+        seasonal_url = f"{self.base_url}/shows/top?year={year}&season={season}"
+        soup = self._make_request(seasonal_url)
+        
+        if not soup:
+            return {"dramas": [], "total": 0, "year": year, "quarter": quarter}
+
+        try:
+            dramas = []
+            drama_items = soup.find_all('div', class_='box')
+            
+            for item in drama_items[:20]:
+                try:
+                    title_elem = item.find('h6')
+                    if not title_elem or not title_elem.find('a'):
+                        continue
+                    
+                    title = title_elem.get_text(strip=True)
+                    link = title_elem.find('a')['href']
+                    slug = link.split('/')[-1] if link else ''
+                    
+                    img_elem = item.find('img', class_='lazy')
+                    image = img_elem.get('data-src') if img_elem else ''
+                    
+                    rating_elem = item.find('span', class_='score')
+                    rating = rating_elem.get_text(strip=True) if rating_elem else ''
+                    
+                    dramas.append({
+                        'title': title,
+                        'slug': slug,
+                        'image': image,
+                        'rating': rating,
+                        'url': f"{self.base_url}{link}" if link else ''
+                    })
+                except Exception as e:
+                    logger.error(f"Error parsing seasonal drama: {str(e)}")
+                    continue
+
+            return {
+                "dramas": dramas,
+                "total": len(dramas),
+                "year": year,
+                "quarter": quarter,
+                "season": season
+            }
+        except Exception as e:
+            logger.error(f"Error parsing seasonal dramas: {str(e)}")
+            return {"dramas": [], "total": 0, "year": year, "quarter": quarter}
+
+    async def get_drama_list(self, list_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific drama list by ID"""
+        list_url = f"{self.base_url}/list/{list_id}"
+        soup = self._make_request(list_url)
+        
+        if not soup:
+            return None
+
+        try:
+            # Proactively check for private list message
+            if "private" in soup.text.lower() and "list" in soup.text.lower():
+                raise Exception("This list is private")
+            
+            title_elem = soup.find('h1')
+            title = title_elem.get_text(strip=True) if title_elem else ''
+            
+            description_elem = soup.select_one('div.box-header .description')
+            description = description_elem.get_text(strip=True) if description_elem else ''
+            
+            dramas = []
+            # The site structure has changed to use <li> in a <ul>
+            drama_items = soup.select('ul.list-group li.list-group-item')
+            
+            for item in drama_items:
+                try:
+                    # Title is now inside an <h2>
+                    title_elem = item.select_one('h2.title > a')
+                    if not title_elem:
+                        continue
+                    
+                    drama_title = title_elem.get_text(strip=True)
+                    link = title_elem['href']
+                    slug = link.split('/')[-1] if link else ''
+                    
+                    img_elem = item.find('img', class_='lazy')
+                    image = img_elem.get('data-src') or img_elem.get('src')
+                    
+                    dramas.append({
+                        'title': drama_title,
+                        'slug': slug,
+                        'image': image,
+                        'url': f"{self.base_url}{link}" if link else ''
+                    })
+                except Exception as e:
+                    logger.error(f"Error parsing list item: {str(e)}")
+                    continue
+
+            return {
+                'title': title,
+                'description': description,
+                'dramas': dramas,
+                'total': len(dramas),
+                'url': list_url
+            }
+        except Exception as e:
+            if "private" in str(e).lower():
+                raise
+            logger.error(f"Error parsing drama list: {str(e)}")
+            return None
+
+    async def get_user_drama_list(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a user's drama list by user ID"""
+        user_list_url = f"{self.base_url}/dramalist/{user_id}"
+        soup = self._make_request(user_list_url)
+        
+        if not soup:
+            return None
+
+        try:
+            # Proactively check for private list message
+            if "This user's list is private." in soup.get_text():
+                raise Exception("This list is private")
+            
+            # The username is now inside a specific header structure
+            username_elem = soup.select_one('h1.mdl-style-header a')
+            username = username_elem.get_text(strip=True) if username_elem else user_id
+            
+            dramas = []
+            # Find all list tables (e.g., Currently Watching, Completed)
+            list_sections = soup.find_all('div', class_='mdl-style-list')
+            
+            for section in list_sections:
+                status_header = section.find('h3', class_='mdl-style-list-label')
+                status = status_header.get_text(strip=True) if status_header else 'Unknown'
+
+                drama_rows = section.select('table > tbody > tr')
+
+                for row in drama_rows:
+                    try:
+                        title_elem = row.find('a', class_='title')
+                        if not title_elem:
+                            continue
+                            
+                        title = title_elem.get_text(strip=True)
+                        link = title_elem['href']
+                        slug = link.split('/')[-1] if link else ''
+
+                        rating_elem = row.select_one('td.mdl-style-col-score .score')
+                        rating = rating_elem.get_text(strip=True) if rating_elem and rating_elem.get_text(strip=True) not in ["0.0", "N/A"] else ''
+                        
+                        # Note: This view does not have images. 'image' will be empty.
+                        image = ''
+
+                        dramas.append({
+                            'title': title,
+                            'slug': slug,
+                            'status': status,
+                            'rating': rating,
+                            'image': image,
+                            'url': f"{self.base_url}{link}" if link else ''
+                        })
+                    except Exception as e:
+                        logger.error(f"Error parsing user list item: {str(e)}")
+                        continue
+            
+            return {
+                'username': username,
+                'user_id': user_id,
+                'dramas': dramas,
+                'total': len(dramas),
+                'url': user_list_url
+            }
+        except Exception as e:
+            if "private" in str(e).lower():
+                raise
+            logger.error(f"Error parsing user drama list: {str(e)}")
+            return None
