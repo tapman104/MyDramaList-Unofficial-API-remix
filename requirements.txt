@@ -1,15 +1,5 @@
-# requirements.txt
-
-# --- Core Framework ---
-fastapi>=0.110.0
-uvicorn>=0.29.0
-python-multipart>=0.0.9
-
-# --- Networking & Asynchronous Operations ---
-httpx[http2]>=0.27.0 # Async HTTP client
-aiolimiter>=1.1.0    # For async rate limiting
-tenacity>=8.2.3      # For robust retries with backoff
-
-# --- Parsing & Serialization ---
-selectolax>=0.3.1    # Fast HTML5 parser
-orjson>=3.10.0       # Fast JSON library
+fastapi==0.104.1
+uvicorn==0.24.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+python-multipart==0.0.6
