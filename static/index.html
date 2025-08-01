@@ -94,7 +94,7 @@
             </p>
              <div class="mt-8 font-mono text-sm inline-flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full px-4 py-2">
                 <span class="text-slate-500">Base URL:</span>
-                <span class="text-cyan-400">https://my-drama-list-unofficial-api.vercel.app</span>
+                <span id="base-url-display" class="text-cyan-400"></span>
             </div>
         </section>
         
@@ -439,11 +439,19 @@ vercel --prod</code></pre>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const apiUrl = 'https://my-drama-list-unofficial-api.vercel.app';
+            // Use the window's origin as the base URL for API requests.
+            const apiUrl = window.location.origin;
+
+            // Dynamically set the displayed base URL in the hero section.
+            const baseUrlDisplay = document.getElementById('base-url-display');
+            if (baseUrlDisplay) {
+                baseUrlDisplay.textContent = apiUrl;
+            }
+            
             const endpointsContainer = document.querySelector('#api-endpoints > div');
             
             const endpoints = [
-                 { id: 'search', title: 'Search Dramas', method: 'GET', path: '/api/search/q/{param}', description: 'Search for dramas by title. Returns a list of matching titles.', param_placeholder: 'my demon' },
+                { id: 'search', title: 'Search Dramas', method: 'GET', path: '/api/search/q/{param}', description: 'Search for dramas by title. Returns a list of matching titles.', param_placeholder: 'my demon' },
                 { id: 'details', title: 'Get Drama Details', method: 'GET', path: '/api/id/{param}', description: 'Get detailed information for a specific drama using its slug.', param_placeholder: '746993-my-demon' },
                 { id: 'cast', title: 'Get Cast & Crew', method: 'GET', path: '/api/id/{param}/cast', description: 'Get cast and crew information, grouped by their roles.', param_placeholder: '746993-my-demon' },
                 { id: 'episodes', title: 'Get Episodes', method: 'GET', path: '/api/id/{param}/episodes', description: 'Get episode details, including titles and air dates.', param_placeholder: '746993-my-demon' },
@@ -455,7 +463,6 @@ vercel --prod</code></pre>
                 { id: 'health', title: 'Health Check', method: 'GET', path: '/api/health', description: 'A simple health check endpoint to verify API status.', param_placeholder: '' },
             ];
             
-            endpointsContainer.innerHTML = endpoints.map(ep => { /* HTML Generation */ return `...` }).join(''); // JS logic will populate this
             endpointsContainer.innerHTML = endpoints.map(ep => {
                 const hasParam = ep.path.includes('{param}');
                 return `
@@ -573,13 +580,8 @@ vercel --prod</code></pre>
                         panel.style.marginTop = '2rem';
                         Prism.highlightAll();
                         
-                        // Smooth scroll to the content panel
                         setTimeout(() => {
-                            panel.scrollIntoView({ 
-                                behavior: 'smooth', 
-                                block: 'start',
-                                inline: 'nearest'
-                            });
+                            panel.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
                         }, 100);
                     }
                 }
@@ -587,17 +589,9 @@ vercel --prod</code></pre>
                 if (tryItButton) {
                     const endpointId = tryItButton.dataset.endpointId;
                     const testerPanel = document.getElementById(`tester-${endpointId}`);
-                    const isHidden = testerPanel.classList.contains('hidden');
-                    
                     testerPanel.classList.toggle('hidden');
                     tryItButton.querySelector('.chevron').classList.toggle('rotate-180');
-                    
-                    // Add active class when panel is opened
-                    if (!isHidden) {
-                        testerPanel.classList.remove('active');
-                    } else {
-                        testerPanel.classList.add('active');
-                    }
+                    testerPanel.classList.toggle('active', !testerPanel.classList.contains('hidden'));
                 }
 
                 if (sendButton) {
@@ -607,7 +601,6 @@ vercel --prod</code></pre>
                     const inputField = document.getElementById(`input-${endpointId}`);
                     const testerPanel = document.getElementById(`tester-${endpointId}`);
                     
-                    // Update UI elements
                     const responseTime = testerPanel.querySelector('.response-time');
                     const responseSize = testerPanel.querySelector('.response-size');
                     const responseStatus = testerPanel.querySelector('.response-status');
@@ -617,7 +610,6 @@ vercel --prod</code></pre>
                     const inputValue = inputField ? inputField.value.trim() || placeholder : '';
                     let fullUrl = apiUrl + endpoint.path.replace('{param}', encodeURIComponent(inputValue));
                     
-                    // Update UI to loading state
                     sendButton.disabled = true; 
                     sendButton.textContent = 'Fetching...';
                     responseCodeEl.textContent = '// Sending request...';
@@ -634,9 +626,10 @@ vercel --prod</code></pre>
                         const data = await response.json();
                         const endTime = Date.now();
                         const responseTimeMs = endTime - startTime;
-                        const responseSizeBytes = new Blob([JSON.stringify(data, null, 2)]).size;
                         
-                        // Format response size
+                        const jsonString = JSON.stringify(data, null, 2);
+                        const responseSizeBytes = new Blob([jsonString]).size;
+                        
                         const formatBytes = (bytes) => {
                             if (bytes === 0) return '0 B';
                             const k = 1024;
@@ -645,11 +638,11 @@ vercel --prod</code></pre>
                             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
                         };
                         
-                        responseCodeEl.textContent = JSON.stringify(data, null, 2);
+                        responseCodeEl.textContent = jsonString;
                         responseTime.textContent = `${responseTimeMs}ms`;
                         responseSize.textContent = formatBytes(responseSizeBytes);
-                        responseStatus.className = 'w-2 h-2 bg-green-500 rounded-full response-status';
-                        responseStatusText.textContent = 'Success';
+                        responseStatus.className = `w-2 h-2 rounded-full response-status ${response.ok ? 'bg-green-500' : 'bg-red-500'}`;
+                        responseStatusText.textContent = response.statusText || (response.ok ? 'Success' : 'Error');
                         
                     } catch (error) {
                         const endTime = Date.now();
@@ -659,7 +652,7 @@ vercel --prod</code></pre>
                         responseTime.textContent = `${responseTimeMs}ms`;
                         responseSize.textContent = '0 B';
                         responseStatus.className = 'w-2 h-2 bg-red-500 rounded-full response-status';
-                        responseStatusText.textContent = 'Error';
+                        responseStatusText.textContent = 'Client Error';
                     } finally {
                         Prism.highlightElement(responseCodeEl);
                         sendButton.disabled = false; 
@@ -685,10 +678,7 @@ vercel --prod</code></pre>
                         code.textContent = JSON.stringify(parsed, null, 2);
                         Prism.highlightElement(code);
                     } catch (error) {
-                        // If it's not valid JSON, try to format it as much as possible
-                        const originalText = code.textContent;
-                        code.textContent = originalText.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-                        Prism.highlightElement(code);
+                        // ignore if not valid JSON
                     }
                 }
             });
