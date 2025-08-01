@@ -40,30 +40,26 @@ class MyDramaListScraper:
             return {"results": [], "total": 0}
 
         results = []
-        # Find all boxes, but we will filter for only drama/movie results
         drama_items = soup.find_all('div', class_='box')
         
-        for item in drama_items[:20]:  # Limit to 20 results
+        for item in drama_items[:20]:
             try:
-                # Dramas/movies have a title h6 with a link inside
                 title_elem = item.find('h6', class_='title')
                 if not title_elem or not title_elem.find('a'):
                     continue
                 
                 title = title_elem.get_text(strip=True)
-                link = title_elem.find('a')['href']
+                link_elem = title_elem.find('a')
+                link = link_elem['href'] if link_elem else ''
                 slug = link.split('/')[-1] if link else ''
                 
-                # Year is inside a 'text-muted' span
                 year_elem = item.find('span', class_='text-muted')
                 year_match = re.search(r'(\d{4})', year_elem.get_text(strip=True)) if year_elem else None
                 year = year_match.group(1) if year_match else ''
                 
-                # Image can be in 'data-src' for lazy loading or 'src'
-                img_elem = item.find('img', class_='lazy') or item.find('img')
-                image = img_elem.get('data-src') or img_elem.get('src', '')
+                img_elem = item.find('img', class_='lazy')
+                image = img_elem['data-src'] if img_elem and 'data-src' in img_elem.attrs else (item.find('img')['src'] if item.find('img') else '')
 
-                # Rating is in a span with class 'score'
                 rating_elem = item.find('span', class_='score')
                 rating = rating_elem.get_text(strip=True) if rating_elem else ''
                 
@@ -90,82 +86,86 @@ class MyDramaListScraper:
             return None
 
         try:
-            data = {'slug': slug, 'url': drama_url}
-            
-            # --- Main Info ---
-            data['title'] = soup.select_one('h1.film-title').get_text(strip=True) if soup.select_one('h1.film-title') else ''
-            data['image'] = soup.select_one('div.film-cover img.img-responsive')['src'] if soup.select_one('div.film-cover img.img-responsive') else ''
-            data['synopsis'] = soup.select_one('div.show-synopsis p').get_text(" ", strip=True) if soup.select_one('div.show-synopsis p') else ''
-            
-            # --- Sidebar Info ---
-            sidebar_details = {}
-            sidebar_stats = {}
-            
-            # Find details and stats boxes in the sidebar
-            details_header = soup.find('h3', string='Details')
-            if details_header:
-                details_box = details_header.find_parent('.box')
-                for item in details_box.select('.list-item'):
-                    key_b = item.find('b')
-                    if key_b:
-                        key = key_b.get_text(strip=True).replace(':', '').strip()
-                        value = item.get_text().replace(key_b.get_text(), '', 1).strip()
-                        sidebar_details[key] = value
+            details = {'slug': slug, 'url': drama_url}
 
-            stats_header = soup.find('h3', string='Statistics')
-            if stats_header:
-                stats_box = stats_header.find_parent('.box')
-                for item in stats_box.select('.list-item'):
-                    key_b = item.find('b')
-                    if key_b:
-                        key = key_b.get_text(strip=True).replace(':', '').strip()
-                        value = item.get_text().replace(key_b.get_text(), '', 1).strip()
-                        sidebar_stats[key] = value
+            # --- Main Title and Image ---
+            title_elem = soup.select_one('h1.film-title')
+            details['title'] = title_elem.get_text(strip=True) if title_elem else 'N/A'
+            
+            img_elem = soup.select_one('div.film-cover img')
+            details['image'] = img_elem['src'] if img_elem else ''
 
-            data.update({
-                "drama": sidebar_details.get("Drama"),
-                "country": sidebar_details.get("Country"),
-                "episodes": sidebar_details.get("Episodes"),
-                "aired": sidebar_details.get("Aired"),
-                "aired_on": sidebar_details.get("Aired On"),
-                "original_network": sidebar_details.get("Original Network"),
-                "duration": sidebar_details.get("Duration"),
-                "content_rating": sidebar_details.get("Content Rating"),
-            })
+            # --- Synopsis ---
+            synopsis_elem = soup.select_one('div.show-synopsis > p')
+            details['synopsis'] = synopsis_elem.get_text(" ", strip=True).replace(' Edit Translation', '') if synopsis_elem else ''
 
-            score_text = sidebar_stats.get("Score", "")
-            score_match = re.search(r'([\d.]+)\s*\(scored by\s*([\d,]+)\s*users\)', score_text)
-            if score_match:
-                data['rating'] = score_match.group(1)
-                data['scored_by'] = score_match.group(2)
-            else:
-                data['rating'] = 'N/A'
-                data['scored_by'] = '0'
+            # --- Sidebar Details & Statistics ---
+            sidebar_details = soup.select("div.content-side .box")
+            for box in sidebar_details:
+                header_elem = box.select_one('.box-header h3')
+                if not header_elem:
+                    continue
+                header = header_elem.get_text(strip=True)
                 
-            data['ranked'] = sidebar_stats.get('Ranked')
-            data['popularity'] = sidebar_stats.get('Popularity')
-            data['watchers'] = sidebar_stats.get('Watchers')
+                if header == 'Details':
+                    for item in box.select('li.list-item'):
+                        item_text = item.get_text(" ", strip=True)
+                        if 'Drama:' in item_text:
+                            details['type'] = item_text.replace('Drama:', '').strip()
+                        elif 'Country:' in item_text:
+                            details['country'] = item_text.replace('Country:', '').strip()
+                        elif 'Episodes:' in item_text:
+                            details['episodes'] = item_text.replace('Episodes:', '').strip()
+                        elif 'Aired:' in item_text:
+                            details['aired'] = item_text.replace('Aired:', '').strip()
+                        elif 'Aired On:' in item_text:
+                            details['aired_on'] = item_text.replace('Aired On:', '').strip()
+                        elif 'Original Network:' in item_text:
+                            network_elem = item.find('a')
+                            details['original_network'] = network_elem.get_text(strip=True) if network_elem else item_text.replace('Original Network:', '').strip()
+                        elif 'Duration:' in item_text:
+                            details['duration'] = item_text.replace('Duration:', '').strip()
+                        elif 'Content Rating:' in item_text:
+                            details['content_rating'] = item_text.replace('Content Rating:', '').strip()
+                
+                elif header == 'Statistics':
+                    for item in box.select('li.list-item'):
+                        item_text = item.get_text(" ", strip=True)
+                        if 'Score:' in item_text:
+                            details['score_details'] = item_text.replace('Score:', '').strip()
+                        elif 'Ranked:' in item_text:
+                            details['ranked'] = item_text.replace('Ranked:', '').strip()
+                        elif 'Popularity:' in item_text:
+                            details['popularity'] = item_text.replace('Popularity:', '').strip()
+                        elif 'Watchers:' in item_text:
+                            details['watchers'] = item_text.replace('Watchers:', '').strip()
             
-            # --- Main Content Details for lists ---
+            # --- Main Details (Native Title, Genres, Tags) ---
             main_details_list = soup.select_one('div.show-detailsxss > ul.list')
             if main_details_list:
-                for item in main_details_list.find_all('li', class_='list-item'):
-                    key_b = item.find('b', class_='inline')
-                    if key_b:
-                        key_text = key_b.get_text(strip=True)
-                        if 'Native Title:' in key_text:
-                            data['native_title'] = item.get_text().replace(key_text, '').strip()
-                        elif 'Also Known As:' in key_text:
-                            data['alternative_titles'] = [a.strip() for a in item.get_text().replace(key_text, '').strip().split(',') if a.strip()]
-                        elif 'Genres:' in key_text:
-                            data['genres'] = [a.get_text(strip=True) for a in item.select('a')]
-                        elif 'Tags:' in key_text:
-                            data['tags'] = [a.get_text(strip=True) for a in item.select('a')]
+                for item in main_details_list.select('li.list-item'):
+                    key_elem = item.find('b', class_='inline')
+                    if not key_elem: continue
+                    key = key_elem.get_text(strip=True)
+                    
+                    if 'Native Title:' in key:
+                        details['native_title'] = item.get_text().replace(key, '').strip()
+                    elif 'Also Known As:' in key:
+                        details['also_known_as'] = [s.strip() for s in item.get_text().replace(key, '').split(',') if s.strip()]
+                    elif 'Genres:' in key:
+                        details['genres'] = [a.get_text(strip=True) for a in item.select('a')]
+                    elif 'Tags:' in key:
+                        tags = [a.get_text(strip=True) for a in item.select('a')]
+                        details['tags'] = [t for t in tags if t != '(Vote tags)']
 
-            return data
+            # --- Overall Rating ---
+            rating_elem = soup.select_one('.hfs b')
+            details['rating'] = rating_elem.get_text(strip=True) if rating_elem else 'N/A'
+
+            return details
 
         except Exception as e:
-            logger.error(f"Error parsing drama details: {str(e)}")
+            logger.error(f"Error parsing drama details for '{slug}': {str(e)}")
             return None
 
     async def get_drama_cast(self, slug: str) -> Optional[Dict[str, Any]]:
@@ -178,7 +178,8 @@ class MyDramaListScraper:
 
         cast_by_role = {}
         try:
-            role_headers = soup.select('h3.header.b-b')
+            # The page is structured by headers (h3) for roles
+            role_headers = soup.find_all('h3', class_='header')
             for header in role_headers:
                 role_name = header.get_text(strip=True)
                 cast_list = []
@@ -196,15 +197,12 @@ class MyDramaListScraper:
                         
                         name = name_elem.find('b').get_text(strip=True) if name_elem.find('b') else name_elem.get_text(strip=True)
                         profile_url = name_elem['href']
-                        
-                        # Find character name container (a div after the name anchor)
-                        character_div = name_elem.find_next_sibling('div')
-                        character_role = ''
-                        if character_div:
-                            char_small = character_div.find('small')
-                            if char_small:
-                                character_role = char_small.get_text(strip=True)
 
+                        character_role = ''
+                        role_div = name_elem.find_next_sibling('div')
+                        if role_div and role_div.find('small'):
+                            character_role = role_div.find('small').get_text(strip=True)
+                        
                         img_elem = item.find('img')
                         image = img_elem.get('src') or img_elem.get('data-src')
 
@@ -241,25 +239,19 @@ class MyDramaListScraper:
             
             for item in episode_items:
                 try:
-                    title_elem = item.find('h2', class_='title').find('a')
-                    full_title = title_elem.get_text(strip=True)
+                    title_elem = item.select_one('h2.title > a')
+                    full_title = title_elem.get_text(strip=True) if title_elem else ''
                     
                     episode_num_match = re.search(r'Episode\s+(\d+)', full_title)
                     episode_num = episode_num_match.group(1) if episode_num_match else ''
                     
                     air_date_elem = item.find('div', class_='air-date')
                     air_date = air_date_elem.get_text(strip=True) if air_date_elem else ''
-
-                    rating = 'N/A'
-                    rating_elem = item.select_one('.rating-panel b')
-                    if rating_elem:
-                        rating = rating_elem.get_text(strip=True)
                     
                     episodes.append({
                         'episode_number': episode_num,
                         'title': full_title,
-                        'air_date': air_date,
-                        'rating': rating,
+                        'air_date': air_date
                     })
                 except Exception as e:
                     logger.error(f"Error parsing episode: {str(e)}")
@@ -284,31 +276,25 @@ class MyDramaListScraper:
             
             for item in review_items[:10]:
                 try:
-                    review_data = {}
                     author_elem = item.find('a', class_='text-primary')
-                    review_data['author'] = author_elem.get_text(strip=True) if author_elem else ''
+                    author = author_elem.get_text(strip=True) if author_elem else ''
                     
-                    # Ratings box
-                    rating_box = item.select_one('.review-body > .box')
-                    if rating_box:
-                        overall_rating_elem = rating_box.select_one('.rating-overall .score')
-                        review_data['rating_overall'] = overall_rating_elem.get_text(strip=True) if overall_rating_elem else ''
-                        
-                        rating_breakdown = {}
-                        for rating_item in rating_box.select('.review-rating > div'):
-                            text = rating_item.get_text()
-                            score = rating_item.find('span', class_='pull-right').get_text()
-                            key = text.replace(score, '').strip().lower().replace('/', '_').replace(' ', '_')
-                            rating_breakdown[key] = score
-                        review_data['ratings'] = rating_breakdown
+                    rating_elem = item.select_one('.rating-overall .score')
+                    rating = rating_elem.get_text(strip=True) if rating_elem else ''
                     
                     content_elem = item.find('div', class_='review-body')
-                    review_data['content'] = content_elem.find('p').get_text(" ", strip=True)
+                    content_p = content_elem.find_all('p')
+                    content = "\n".join([p.get_text(" ", strip=True) for p in content_p])
                     
                     date_elem = item.find('small', class_='datetime')
-                    review_data['date'] = date_elem.get_text(strip=True) if date_elem else ''
+                    date = date_elem.get_text(strip=True) if date_elem else ''
                     
-                    reviews.append(review_data)
+                    reviews.append({
+                        'author': author,
+                        'rating': rating,
+                        'content': content,
+                        'date': date
+                    })
                 except Exception as e:
                     logger.error(f"Error parsing review: {str(e)}")
                     continue
@@ -328,61 +314,64 @@ class MyDramaListScraper:
 
         try:
             data = {'id': people_id, 'url': person_url}
+
+            name_elem = soup.select_one('h1.film-title')
+            data['name'] = name_elem.get_text(strip=True) if name_elem else 'N/A'
+
+            img_elem = soup.select_one('.profile-image img, .box-body img.img-responsive')
+            data['image'] = img_elem['src'] if img_elem else ''
+
+            # --- Personal Info from sidebar ---
+            info = {}
+            details_box = soup.select_one('div.box.clear.hidden-sm-down')
+            if details_box:
+                info_list = details_box.select('ul.list > li.list-item')
+                for item in info_list:
+                    key_elem = item.find('b')
+                    if key_elem:
+                        key = key_elem.get_text(strip=True).replace(':', '').strip().lower().replace(' ', '_')
+                        value = item.get_text().replace(key_elem.get_text(), '', 1).strip()
+                        info[key] = value
+            data['personal_info'] = info
             
-            data['name'] = soup.select_one('h1.film-title').get_text(strip=True)
-            data['image'] = soup.select_one('div.profile-image img, div.film-cover img')['src']
-
-            # --- Personal Info ---
-            personal_info = {}
-            info_list = soup.select_one("div.box.clear.hidden-sm-down .box-body > .list")
-            if info_list:
-                for item in info_list.select("li.list-item"):
-                    key_b = item.find("b")
-                    if key_b:
-                        key = key_b.get_text(strip=True).replace(":", "").lower().replace(" ", "_")
-                        value = item.get_text().replace(key_b.get_text(), "").strip()
-                        personal_info[key] = value
-            data['personal_info'] = personal_info
-
             # --- Biography ---
             bio_container = soup.select_one('div.col-sm-8.col-lg-12.col-md-12')
             if bio_container:
-                bio_lines = [line.strip() for line in bio_container.find_all(string=True, recursive=False) if line.strip()]
-                data['biography'] = " ".join(bio_lines)
-
+                # Get all text nodes directly under the div, excluding those in script tags or children tags
+                bio_texts = [text.strip() for text in bio_container.find_all(string=True, recursive=False) if text.strip()]
+                data['biography'] = " ".join(bio_texts)
+            
             # --- Filmography ---
             filmography = {}
-            for header in soup.select('h5.header'):
-                category = header.get_text(strip=True).lower()  # 'drama', 'movie', etc.
+            film_headers = soup.select('div.box-body > h5.header')
+            for header in film_headers:
+                category = header.get_text(strip=True)
                 table = header.find_next_sibling('table', class_='film-list')
                 if table:
-                    category_entries = []
+                    entries = []
                     for row in table.select('tbody > tr'):
                         entry = {}
-                        entry['year'] = row.select_one('td.year').get_text(strip=True) if row.select_one('td.year') else ''
-                        title_elem = row.select_one('td.title > b > a')
-                        if title_elem:
-                            entry['title'] = title_elem.get_text(strip=True)
-                            entry['slug'] = title_elem['href'].split('/')[-1]
-
-                        role_elem = row.select_one('td.role')
-                        if role_elem:
-                            role_text = role_elem.find(class_='text-muted').get_text(strip=True)
-                            entry['role'] = role_text
-                            char_text = role_elem.find(class_='name').get_text(strip=True)
-                            entry['character_name'] = char_text if char_text != role_text else ''
+                        entry['year'] = row.select_one('td.year').get_text(strip=True) if row.select_one('td.year') else 'N/A'
                         
-                        rating_elem = row.select_one('td.text-center > .text-sm')
-                        entry['rating'] = rating_elem.get_text(strip=True) if rating_elem else ''
-                        category_entries.append(entry)
-                    filmography[category] = category_entries
+                        title_link = row.select_one('td.title a')
+                        entry['title'] = title_link.get_text(strip=True) if title_link else 'N/A'
+                        
+                        role_div = row.select_one('td.role > div.name')
+                        role_text_div = row.select_one('td.role > div.text-muted')
+                        entry['character_name'] = role_div.get_text(strip=True) if role_div else ''
+                        entry['role'] = role_text_div.get_text(strip=True) if role_text_div else ''
+
+                        rating_div = row.select_one('td.text-center > div.text-sm')
+                        entry['rating'] = rating_div.get_text(strip=True) if rating_div else 'N/A'
+                        
+                        entries.append(entry)
+                    filmography[category] = entries
             data['filmography'] = filmography
 
             return data
         except Exception as e:
-            logger.error(f"Error parsing person details for {people_id}: {str(e)}")
+            logger.error(f"Error parsing person details for '{people_id}': {str(e)}")
             return None
-
 
     async def get_seasonal_dramas(self, year: int, quarter: int) -> Dict[str, Any]:
         """Get seasonal dramas"""
@@ -406,7 +395,8 @@ class MyDramaListScraper:
                         continue
                     
                     title = title_elem.get_text(strip=True)
-                    link = title_elem.find('a')['href']
+                    link_elem = title_elem.find('a')
+                    link = link_elem['href'] if link_elem else ''
                     slug = link.split('/')[-1] if link else ''
                     
                     img_elem = item.find('img', class_='lazy')
