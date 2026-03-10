@@ -1,9 +1,10 @@
-import requests
+import httpx
 from bs4 import BeautifulSoup
 import logging
 import asyncio
 from typing import Dict, List, Optional, Any
 import re
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -18,23 +19,23 @@ class MyDramaListScraper:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
         }
-        self.session = requests.Session()
-        self.session.headers.update(self.headers)
 
-    def _make_request(self, url: str) -> Optional[BeautifulSoup]:
+
+    async def _make_request(self, url: str) -> Optional[BeautifulSoup]:
         """Make HTTP request and return BeautifulSoup object"""
         try:
-            response = self.session.get(url, timeout=10)
-            response.raise_for_status()
-            return BeautifulSoup(response.content, 'html.parser')
-        except requests.RequestException as e:
+            async with httpx.AsyncClient(headers=self.headers, timeout=10, follow_redirects=True) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                return BeautifulSoup(response.content, 'html.parser')
+        except httpx.HTTPError as e:
             logger.error(f"Request failed for {url}: {str(e)}")
             return None
 
     async def search_dramas(self, query: str) -> Dict[str, Any]:
         """Search for dramas by query"""
-        search_url = f"{self.base_url}/search?q={query}"
-        soup = self._make_request(search_url)
+        search_url = f"{self.base_url}/search?q={quote(query)}"
+        soup = await self._make_request(search_url)
         
         if not soup:
             return {"results": [], "total": 0}
@@ -80,7 +81,7 @@ class MyDramaListScraper:
     async def get_drama_details(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get drama details by slug"""
         drama_url = f"{self.base_url}/{slug}"
-        soup = self._make_request(drama_url)
+        soup = await self._make_request(drama_url)
         
         if not soup:
             return None
@@ -171,7 +172,7 @@ class MyDramaListScraper:
     async def get_drama_cast(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get cast information for a drama"""
         cast_url = f"{self.base_url}/{slug}/cast"
-        soup = self._make_request(cast_url)
+        soup = await self._make_request(cast_url)
         
         if not soup:
             return None
@@ -228,7 +229,7 @@ class MyDramaListScraper:
     async def get_drama_episodes(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get episode details for a drama"""
         episodes_url = f"{self.base_url}/{slug}/episodes"
-        soup = self._make_request(episodes_url)
+        soup = await self._make_request(episodes_url)
         
         if not soup:
             return None
@@ -265,7 +266,7 @@ class MyDramaListScraper:
     async def get_drama_reviews(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get reviews for a drama"""
         reviews_url = f"{self.base_url}/{slug}/reviews"
-        soup = self._make_request(reviews_url)
+        soup = await self._make_request(reviews_url)
         
         if not soup:
             return None
@@ -307,7 +308,7 @@ class MyDramaListScraper:
     async def get_person_details(self, people_id: str) -> Optional[Dict[str, Any]]:
         """Get person details by ID"""
         person_url = f"{self.base_url}/people/{people_id}"
-        soup = self._make_request(person_url)
+        soup = await self._make_request(person_url)
         
         if not soup:
             return None
@@ -379,7 +380,7 @@ class MyDramaListScraper:
         season = seasons.get(quarter, 'winter')
         
         seasonal_url = f"{self.base_url}/shows/top?year={year}&season={season}"
-        soup = self._make_request(seasonal_url)
+        soup = await self._make_request(seasonal_url)
         
         if not soup:
             return {"dramas": [], "total": 0, "year": year, "quarter": quarter}
@@ -430,7 +431,7 @@ class MyDramaListScraper:
     async def get_drama_list(self, list_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific drama list by ID"""
         list_url = f"{self.base_url}/list/{list_id}"
-        soup = self._make_request(list_url)
+        soup = await self._make_request(list_url)
         
         if not soup:
             return None
@@ -487,7 +488,7 @@ class MyDramaListScraper:
     async def get_user_drama_list(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get a user's drama list by user ID"""
         user_list_url = f"{self.base_url}/dramalist/{user_id}"
-        soup = self._make_request(user_list_url)
+        soup = await self._make_request(user_list_url)
         
         if not soup:
             return None
@@ -521,7 +522,8 @@ class MyDramaListScraper:
                         rating_elem = row.select_one('td.mdl-style-col-score .score')
                         rating = rating_elem.get_text(strip=True) if rating_elem and rating_elem.get_text(strip=True) not in ["0.0", "N/A"] else ''
                         
-                        image = ''
+                        img_elem = row.find('img')
+                        image = (img_elem.get('data-src') or img_elem.get('src') or '') if img_elem else ''
 
                         dramas.append({
                             'title': title,

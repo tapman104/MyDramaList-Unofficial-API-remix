@@ -2,8 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import logging
+import asyncio
 from scraper import MyDramaListScraper
-import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,7 +32,7 @@ async def search_dramas(query: str):
     """Search for dramas by query"""
     try:
         logger.info(f"Searching for: {query}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         results = await scraper.search_dramas(query)
         return results
     except Exception as e:
@@ -47,7 +47,7 @@ async def get_drama_details(slug: str):
     """Get drama details by slug"""
     try:
         logger.info(f"Getting drama details for: {slug}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         details = await scraper.get_drama_details(slug)
         if not details:
             return JSONResponse(
@@ -72,7 +72,7 @@ async def get_drama_cast(slug: str):
     """Get cast information for a drama"""
     try:
         logger.info(f"Getting cast for: {slug}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         cast = await scraper.get_drama_cast(slug)
         if not cast:
             return JSONResponse(
@@ -92,7 +92,7 @@ async def get_drama_episodes(slug: str):
     """Get episode details for a drama"""
     try:
         logger.info(f"Getting episodes for: {slug}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         episodes = await scraper.get_drama_episodes(slug)
         if not episodes:
             return JSONResponse(
@@ -112,7 +112,7 @@ async def get_drama_reviews(slug: str):
     """Get reviews for a drama"""
     try:
         logger.info(f"Getting reviews for: {slug}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         reviews = await scraper.get_drama_reviews(slug)
         if not reviews:
             return JSONResponse(
@@ -132,7 +132,7 @@ async def get_person_details(people_id: str):
     """Get person details by ID"""
     try:
         logger.info(f"Getting person details for: {people_id}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         person = await scraper.get_person_details(people_id)
         if not person:
             return JSONResponse(
@@ -158,7 +158,7 @@ async def get_seasonal_dramas(year: int, quarter: int):
             )
         
         logger.info(f"Getting seasonal dramas for: {year} Q{quarter}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         dramas = await scraper.get_seasonal_dramas(year, quarter)
         return dramas
     except HTTPException:
@@ -175,7 +175,7 @@ async def get_drama_list(list_id: str):
     """Get a specific drama list by ID"""
     try:
         logger.info(f"Getting drama list: {list_id}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         drama_list = await scraper.get_drama_list(list_id)
         if not drama_list:
             return JSONResponse(
@@ -200,7 +200,7 @@ async def get_user_drama_list(user_id: str):
     """Get a user's drama list by user ID"""
     try:
         logger.info(f"Getting user drama list for: {user_id}")
-        time.sleep(1)  # Rate limiting
+        await asyncio.sleep(1)  # Rate limiting
         user_list = await scraper.get_user_drama_list(user_id)
         if not user_list:
             return JSONResponse(
