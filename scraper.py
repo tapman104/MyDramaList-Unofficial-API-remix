@@ -1,4 +1,4 @@
-import httpx
+from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 import logging
 import asyncio
@@ -24,11 +24,11 @@ class MyDramaListScraper:
     async def _make_request(self, url: str) -> Optional[BeautifulSoup]:
         """Make HTTP request and return BeautifulSoup object"""
         try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=10, follow_redirects=True) as client:
-                response = await client.get(url)
+            async with AsyncSession(impersonate="chrome110") as session:
+                response = await session.get(url, timeout=10)
                 response.raise_for_status()
                 return BeautifulSoup(response.content, 'html.parser')
-        except httpx.HTTPError as e:
+        except Exception as e:
             logger.error(f"Request failed for {url}: {str(e)}")
             return None
 
