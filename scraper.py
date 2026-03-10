@@ -94,7 +94,7 @@ class MyDramaListScraper:
             details['title'] = title_elem.get_text(strip=True) if title_elem else 'N/A'
             
             img_elem = soup.select_one('div.film-cover img')
-            details['image'] = img_elem['src'] if img_elem else ''
+            details['image'] = img_elem.get('src') or img_elem.get('data-src') or '' if img_elem else ''
 
             # --- Synopsis ---
             synopsis_elem = soup.select_one('div.show-synopsis > p')
@@ -150,9 +150,9 @@ class MyDramaListScraper:
                     key = key_elem.get_text(strip=True)
                     
                     if 'Native Title:' in key:
-                        details['native_title'] = item.get_text().replace(key, '').strip()
+                        details['native_title'] = item.get_text().replace(key, '', 1).strip()
                     elif 'Also Known As:' in key:
-                        details['also_known_as'] = [s.strip() for s in item.get_text().replace(key, '').split(',') if s.strip()]
+                        details['also_known_as'] = [s.strip() for s in item.get_text().replace(key, '', 1).split(',') if s.strip()]
                     elif 'Genres:' in key:
                         details['genres'] = [a.get_text(strip=True) for a in item.select('a')]
                     elif 'Tags:' in key:
@@ -197,7 +197,7 @@ class MyDramaListScraper:
                             continue
                         
                         name = name_elem.find('b').get_text(strip=True) if name_elem.find('b') else name_elem.get_text(strip=True)
-                        profile_url = name_elem['href']
+                        profile_url = name_elem.get('href', '')
 
                         character_role = ''
                         role_div = name_elem.find_next_sibling('div')
@@ -205,7 +205,7 @@ class MyDramaListScraper:
                             character_role = role_div.find('small').get_text(strip=True)
                         
                         img_elem = item.find('img')
-                        image = img_elem.get('src') or img_elem.get('data-src')
+                        image = (img_elem.get('src') or img_elem.get('data-src') or '') if img_elem else ''
 
                         cast_list.append({
                             'name': name,
@@ -284,7 +284,7 @@ class MyDramaListScraper:
                     rating = rating_elem.get_text(strip=True) if rating_elem else ''
                     
                     content_elem = item.find('div', class_='review-body')
-                    content_p = content_elem.find_all('p')
+                    content_p = content_elem.find_all('p') if content_elem else []
                     content = "\n".join([p.get_text(" ", strip=True) for p in content_p])
                     
                     date_elem = item.find('small', class_='datetime')
@@ -460,7 +460,7 @@ class MyDramaListScraper:
                     slug = link.split('/')[-1] if link else ''
                     
                     img_elem = item.find('img', class_='lazy')
-                    image = img_elem.get('data-src') or img_elem.get('src')
+                    image = (img_elem.get('data-src') or img_elem.get('src') or '') if img_elem else ''
                     
                     dramas.append({
                         'title': drama_title,
