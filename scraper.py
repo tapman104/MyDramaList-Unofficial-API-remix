@@ -54,10 +54,16 @@ class MyDramaListScraper:
                 link = link_elem['href'] if link_elem else ''
                 slug = link.split('/')[-1] if link else ''
                 
+                if not slug or '/article/' in (link or ''):
+                    continue
+
                 year_elem = item.find('span', class_='text-muted')
                 year_match = re.search(r'(\d{4})', year_elem.get_text(strip=True)) if year_elem else None
                 year = year_match.group(1) if year_match else ''
                 
+                if not year:
+                    continue
+
                 img_elem = item.find('img', class_='lazy')
                 image = img_elem['data-src'] if img_elem and 'data-src' in img_elem.attrs else (item.find('img')['src'] if item.find('img') else '')
 
@@ -78,8 +84,19 @@ class MyDramaListScraper:
 
         return {"results": results, "total": len(results)}
 
+    async def resolve_slug(self, query: str) -> Optional[str]:
+        """Search and return the first drama slug if the input is a title"""
+        results = await self.search_dramas(query)
+        return results['results'][0]['slug'] if results['results'] else None
+
     async def get_drama_details(self, slug: str) -> Optional[Dict[str, Any]]:
-        """Get drama details by slug"""
+        """Get drama details by slug (or title)"""
+        # If slug doesn't contain a digit-dash pattern, try to resolve it as a title
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
         drama_url = f"{self.base_url}/{slug}"
         soup = await self._make_request(drama_url)
         
@@ -170,7 +187,12 @@ class MyDramaListScraper:
             return None
 
     async def get_drama_cast(self, slug: str) -> Optional[Dict[str, Any]]:
-        """Get cast information for a drama"""
+        """Get cast information for a drama by slug (or title)"""
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
         cast_url = f"{self.base_url}/{slug}/cast"
         soup = await self._make_request(cast_url)
         
@@ -227,7 +249,12 @@ class MyDramaListScraper:
             return None
 
     async def get_drama_episodes(self, slug: str) -> Optional[Dict[str, Any]]:
-        """Get episode details for a drama"""
+        """Get episode details for a drama by slug (or title)"""
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
         episodes_url = f"{self.base_url}/{slug}/episodes"
         soup = await self._make_request(episodes_url)
         
@@ -264,7 +291,12 @@ class MyDramaListScraper:
             return None
 
     async def get_drama_reviews(self, slug: str) -> Optional[Dict[str, Any]]:
-        """Get reviews for a drama"""
+        """Get reviews for a drama by slug (or title)"""
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
         reviews_url = f"{self.base_url}/{slug}/reviews"
         soup = await self._make_request(reviews_url)
         
@@ -551,7 +583,12 @@ class MyDramaListScraper:
             return None
 
     async def get_drama_recommendations(self, slug: str) -> Optional[Dict[str, Any]]:
-        """Get recommendations for a specific drama with optimized parsing and pagination"""
+        """Get recommendations for a specific drama by slug (or title) with optimized parsing and pagination"""
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
         all_recommendations = []
         page = 1
         base_rec_url = f"{self.base_url}/{slug}/recs"
