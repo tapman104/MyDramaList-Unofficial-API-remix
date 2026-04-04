@@ -159,22 +159,20 @@ class MyDramaListScraper:
                             details['watchers'] = item_text.replace('Watchers:', '').strip()
             
             # --- Main Details (Native Title, Genres, Tags) ---
-            main_details_list = soup.select_one('div.show-detailsxss > ul.list')
-            if main_details_list:
-                for item in main_details_list.select('li.list-item'):
-                    key_elem = item.find('b', class_='inline')
-                    if not key_elem: continue
-                    key = key_elem.get_text(strip=True)
-                    
-                    if 'Native Title:' in key:
-                        details['native_title'] = item.get_text().replace(key, '', 1).strip()
-                    elif 'Also Known As:' in key:
-                        details['also_known_as'] = [s.strip() for s in item.get_text().replace(key, '', 1).split(',') if s.strip()]
-                    elif 'Genres:' in key:
-                        details['genres'] = [a.get_text(strip=True) for a in item.select('a')]
-                    elif 'Tags:' in key:
-                        tags = [a.get_text(strip=True) for a in item.select('a')]
-                        details['tags'] = [t for t in tags if t != '(Vote tags)']
+            for item in soup.select('li.list-item'):
+                key_elem = item.find('b')
+                if not key_elem: continue
+                key = key_elem.get_text(strip=True)
+                
+                if 'Native Title:' in key:
+                    details['native_title'] = item.get_text().replace(key, '', 1).strip()
+                elif 'Also Known As:' in key:
+                    details['also_known_as'] = [s.strip() for s in item.get_text().replace(key, '', 1).split(',') if s.strip()]
+                elif 'Genres:' in key:
+                    details['genres'] = [a.get_text(strip=True) for a in item.select('a')]
+                elif 'Tags:' in key:
+                    tags = [a.get_text(strip=True) for a in item.select('a')]
+                    details['tags'] = [t for t in tags if t != '(Vote tags)']
 
             # --- Overall Rating ---
             rating_elem = soup.select_one('.hfs b')
@@ -352,7 +350,7 @@ class MyDramaListScraper:
             data['name'] = name_elem.get_text(strip=True) if name_elem else 'N/A'
 
             img_elem = soup.select_one('.profile-image img, .box-body img.img-responsive')
-            data['image'] = img_elem['src'] if img_elem else ''
+            data['image'] = img_elem.get('src') or img_elem.get('data-src') or '' if img_elem else ''
 
             # --- Personal Info from sidebar ---
             info = {}
@@ -469,7 +467,7 @@ class MyDramaListScraper:
             return None
 
         try:
-            if "private" in soup.text.lower() and "list" in soup.text.lower():
+            if soup.select_one('.alert-danger') and 'private' in soup.select_one('.alert-danger').text.lower():
                 raise Exception("This list is private")
             
             title_elem = soup.find('h1')
@@ -633,6 +631,16 @@ class MyDramaListScraper:
                     rating_elem = item.select_one(".score")
                     rating = rating_elem.get_text(strip=True) if rating_elem else ""
 
+                    # --- RECOMMENDED BY ---
+                    # Updated selector to 'span.recs-author a'
+                    author_elem = item.select_one("span.recs-author a")
+                    recommended_by = author_elem.get_text(strip=True) if author_elem else ""
+
+                    # --- VOTES ---
+                    # Updated selector to '.like-cnt'
+                    votes_elem = item.select_one(".like-cnt")
+                    votes = votes_elem.get_text(strip=True) if votes_elem else "0"
+
                     # --- REASON ---
                     # Updated selector to 'div.recs-body'
                     reason_container = item.select_one("div.recs-body")
@@ -670,16 +678,6 @@ class MyDramaListScraper:
                                 reason_lines = lines
                         else:
                             reason_lines = lines
-
-                    # --- RECOMMENDED BY ---
-                    # Updated selector to 'span.recs-author a'
-                    author_elem = item.select_one("span.recs-author a")
-                    recommended_by = author_elem.get_text(strip=True) if author_elem else ""
-
-                    # --- VOTES ---
-                    # Updated selector to '.like-cnt'
-                    votes_elem = item.select_one(".like-cnt")
-                    votes = votes_elem.get_text(strip=True) if votes_elem else "0"
 
                     all_recommendations.append({
                         "title": title,
