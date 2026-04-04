@@ -127,6 +127,26 @@ async def get_drama_reviews(slug: str):
             detail={"code": 500, "error": True, "description": "Internal server error"}
         )
 
+@app.get("/api/id/{slug}/recs")
+async def get_drama_recommendations(slug: str):
+    """Get drama recommendations for a drama"""
+    try:
+        logger.info(f"Getting recommendations for: {slug}")
+        await asyncio.sleep(1)  # Rate limiting
+        recs = await scraper.get_drama_recommendations(slug)
+        if not recs:
+            return JSONResponse(
+                status_code=404,
+                content={"code": 404, "error": True, "description": "404 Not Found"}
+            )
+        return recs
+    except Exception as e:
+        logger.error(f"Error getting drama recommendations: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"code": 500, "error": True, "description": "Internal server error"}
+        )
+
 @app.get("/api/people/{people_id}")
 async def get_person_details(people_id: str):
     """Get person details by ID"""

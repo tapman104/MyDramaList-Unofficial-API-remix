@@ -549,3 +549,114 @@ class MyDramaListScraper:
                 raise
             logger.error(f"Error parsing user drama list: {str(e)}")
             return None
+
+    async def get_drama_recommendations(self, slug: str) -> Optional[Dict[str, Any]]:
+        """Get recommendations for a specific drama with optimized parsing and pagination"""
+        all_recommendations = []
+        page = 1
+        base_rec_url = f"{self.base_url}/{slug}/recs"
+        
+        while True:
+            rec_url = f"{base_rec_url}?page={page}" if page > 1 else base_rec_url
+            soup = await self._make_request(rec_url)
+            if not soup:
+                break
+            
+            # Updated selector for recommendation items
+            rec_items = soup.select("div.box-body.b-t")
+            if not rec_items:
+                # Fallback check if no items found with b-t class
+                rec_items = soup.select("div.box:has(b a)")
+                if not rec_items:
+                    break
+                
+            page_recs_found = 0
+            for item in rec_items:
+                try:
+                    # --- TITLE + YEAR ---
+                    # Updated selector to 'b a'
+                    title_elem = item.select_one("b a")
+                    if not title_elem:
+                        continue
+                    
+                    title_full = title_elem.get_text(strip=True)
+                    # Match "Title (Year)"
+                    title_match = re.match(r"(.+?)\s*\((\d{4})\)", title_full)
+                    title = title_match.group(1).strip() if title_match else title_full
+                    year = title_match.group(2) if title_match else ""
+
+                    link = title_elem["href"] if title_elem else ""
+                    slug_rec = link.split("/")[-1] if link else ""
+
+                    # --- IMAGE ---
+                    img_elem = item.select_one("img")
+                    image = img_elem.get("data-src") or img_elem.get("src") if img_elem else ""
+
+                    # --- RATING ---
+                    rating_elem = item.select_one(".score")
+                    rating = rating_elem.get_text(strip=True) if rating_elem else ""
+
+                    # --- REASON ---
+                    # Updated selector to 'div.recs-body'
+                    reason_container = item.select_one("div.recs-body")
+                    reason_lines = []
+                    if reason_container:
+                        raw_text = reason_container.get_text("\n", strip=True)
+                        lines = [p.strip() for p in raw_text.split("\n") if p.strip()]
+                        
+                        # Handle requested reason parsing: split by newline and strip.
+                        # If the list seems to start with dashes, it's likely the old style bulleted list.
+                        # But user specified: "if not bulleted" - we'll handle both.
+                        is_bulleted = any(line.startswith("-") for line in lines)
+                        if is_bulleted:
+                            reason_lines = [line.lstrip("-").strip() for line in lines if line.startswith("-")]
+                            if not reason_lines: # Fallback if dash detection failed but some text exists
+                                reason_lines = lines
+                        else:
+                            reason_lines = lines
+
+                    # --- RECOMMENDED BY ---
+                    # Updated selector to 'span.recs-author a'
+                    author_elem = item.select_one("span.recs-author a")
+                    recommended_by = author_elem.get_text(strip=True) if author_elem else ""
+
+                    # --- VOTES ---
+                    # Updated selector to '.like-cnt'
+                    votes_elem = item.select_one(".like-cnt")
+                    votes = votes_elem.get_text(strip=True) if votes_elem else "0"
+
+                    all_recommendations.append({
+                        "title": title,
+                        "year": year,
+                        "slug": slug_rec,
+                        "url": f"{self.base_url}{link}" if link else "",
+                        "image": image,
+                        "rating": rating,
+                        "reasons": reason_lines,
+                        "recommended_by": recommended_by,
+                        "votes": votes
+                    })
+                    page_recs_found += 1
+                except Exception as e:
+                    logger.error(f"Error parsing recommendation: {str(e)}")
+                    continue
+            
+            if page_recs_found == 0:
+                break
+                
+            # Check for next page in pagination
+            # Usually: <li class="page-item next"><a class="page-link" href="...">Next</a></li>
+            # Or sometimes just a link with 'next' in rel
+            next_link = soup.select_one("li.page-item.next:not(.disabled) a.page-link") or soup.select_one("a.page-link[rel='next']")
+            if not next_link or page >= 5: # Limit pagination to 5 pages to avoid rate limits/timeouts
+                break
+                
+            page += 1
+            await asyncio.sleep(0.5) # Anti-ban delay
+
+        return {
+            "recommendations": all_recommendations,
+            "total": len(all_recommendations),
+            "url": base_rec_url,
+            "pages_fetched": page
+        }
