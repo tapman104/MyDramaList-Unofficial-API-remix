@@ -601,8 +601,27 @@ class MyDramaListScraper:
                     reason_container = item.select_one("div.recs-body")
                     reason_lines = []
                     if reason_container:
+                        # Clean up the container by removing metadata elements before extracting text
+                        for meta in reason_container.select(".recs-author, .like-cnt, .btn-menu, .more-recs"):
+                            meta.decompose()
+                            
                         raw_text = reason_container.get_text("\n", strip=True)
+                        # Remove remaining "Recommended by" text node if it exists
+                        if "Recommended by" in raw_text:
+                            raw_text = raw_text.replace("Recommended by", "").strip()
+                            
                         lines = [p.strip() for p in raw_text.split("\n") if p.strip()]
+                        
+                        # Robustly filter out metadata (votes, "Recommended by", and author name)
+                        # We truncate the list when we encounter the "Recommended by" marker or the author name.
+                        cleaned_lines = []
+                        for line in lines:
+                            if line == "Recommended by" or (recommended_by and line == recommended_by):
+                                break
+                            if line == votes and len(line) < 10: # Likely the vote count standalone
+                                continue
+                            cleaned_lines.append(line)
+                        lines = cleaned_lines
                         
                         # Handle requested reason parsing: split by newline and strip.
                         # If the list seems to start with dashes, it's likely the old style bulleted list.
