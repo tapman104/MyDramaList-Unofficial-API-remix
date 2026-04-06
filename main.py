@@ -107,6 +107,44 @@ async def get_drama_episodes(slug: str):
             detail={"code": 500, "error": True, "description": "Internal server error"}
         )
 
+@app.get("/api/id/{slug}/episodes/all")
+async def get_drama_episodes_all(slug: str):
+    """Get all episodes with full details (title, air_date, description, cover image)"""
+    try:
+        logger.info(f"Getting all episode details for: {slug}")
+        result = await scraper.get_drama_episodes_all(slug)
+        if not result:
+            return JSONResponse(
+                status_code=404,
+                content={"code": 404, "error": True, "description": "404 Not Found"}
+            )
+        return result
+    except Exception as e:
+        logger.error(f"Error getting all episode details: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"code": 500, "error": True, "description": "Internal server error"}
+        )
+
+@app.get("/api/id/{slug}/episodes/{episode_number}")
+async def get_episode_details(slug: str, episode_number: int):
+    """Get details for a single episode including description and cover image"""
+    try:
+        logger.info(f"Getting episode {episode_number} details for: {slug}")
+        detail = await scraper.get_episode_details(slug, episode_number)
+        if not detail:
+            return JSONResponse(
+                status_code=404,
+                content={"code": 404, "error": True, "description": "404 Not Found"}
+            )
+        return detail
+    except Exception as e:
+        logger.error(f"Error getting episode details: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"code": 500, "error": True, "description": "Internal server error"}
+        )
+
 @app.get("/api/id/{slug}/reviews")
 async def get_drama_reviews(slug: str):
     """Get reviews for a drama"""

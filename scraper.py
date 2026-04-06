@@ -288,6 +288,168 @@ class MyDramaListScraper:
             logger.error(f"Error parsing episodes: {str(e)}")
             return None
 
+    async def get_episode_details(self, slug: str, episode_number: int) -> Optional[Dict[str, Any]]:
+        """Get details for a single episode (description + cover image) from /episode/{n}"""
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
+        episode_url = f"{self.base_url}/{slug}/episode/{episode_number}"
+        soup = await self._make_request(episode_url)
+
+        if not soup:
+            return None
+
+        try:
+            data: Dict[str, Any] = {
+                'episode_number': str(episode_number),
+                'url': episode_url
+            }
+
+            # --- Title ---
+            title_elem = soup.select_one('h1.film-title, h1')
+            data['title'] = title_elem.get_text(strip=True) if title_elem else f'Episode {episode_number}'
+
+            # --- Cover Image ---
+            # The episode cover image sits in a div.episode-cover or similar; fall back to first responsive img
+            img_elem = (
+                soup.select_one('div.episode-cover img') or
+                soup.select_one('img.img-responsive') or
+                soup.select_one('div.cover img') or
+                soup.select_one('img[src*="episodes"]') or
+                soup.select_one('.film-cover img')
+            )
+            data['image'] = (img_elem.get('src') or img_elem.get('data-src') or '') if img_elem else ''
+
+            # --- Description ---
+            desc_elem = (
+                soup.select_one('div.episode-synopsis p') or
+                soup.select_one('div.show-synopsis p') or
+                soup.select_one('div.ep-synopsis p') or
+                soup.select_one('p.description')
+            )
+            data['description'] = desc_elem.get_text(' ', strip=True) if desc_elem else ''
+
+            # --- Air Date ---
+            aired_elem = soup.select_one('div.air-date, span.air-date, .episode-aired')
+            # Also try to find "Aired: ..." text
+            if not aired_elem:
+                for p in soup.find_all(['p', 'div', 'span']):
+                    txt = p.get_text(strip=True)
+                    if txt.startswith('Aired:'):
+                        data['air_date'] = txt.replace('Aired:', '').strip()
+                        break
+            else:
+                data['air_date'] = aired_elem.get_text(strip=True)
+
+            # --- Rating ---
+            rating_elem = soup.select_one('.hfs b, .score')
+            data['rating'] = rating_elem.get_text(strip=True) if rating_elem else ''
+
+            # --- Season ---
+            for p in soup.find_all(['p', 'div', 'span', 'li']):
+                txt = p.get_text(strip=True)
+                if txt.startswith('Season:'):
+                    data['season'] = txt.replace('Season:', '').strip()
+                    break
+
+            return data
+        except Exception as e:
+            logger.error(f"Error parsing episode {episode_number} for '{slug}': {str(e)}")
+            return None
+
+    async def get_drama_episodes_all(self, slug: str) -> Optional[Dict[str, Any]]:
+        """
+        Get all episodes with full details (title, air_date, description, image).
+        First fetches the episode list page to get episode numbers/titles/dates,
+        then concurrently visits each /episode/{n} page for description + image.
+        """
+        if not re.search(r'\d+-', slug):
+            resolved = await self.resolve_slug(slug)
+            if resolved:
+                slug = resolved
+
+        # Step 1: Get base episode list (title + air_date + episode number)
+        episodes_url = f"{self.base_url}/{slug}/episodes"
+        soup = await self._make_request(episodes_url)
+
+        if not soup:
+            return None
+
+        try:
+            base_episodes = []
+            episode_items = soup.find_all('div', class_='episode')
+
+            for item in episode_items:
+                try:
+                    title_elem = item.select_one('h2.title > a')
+                    full_title = title_elem.get_text(strip=True) if title_elem else ''
+
+                    episode_num_match = re.search(r'Episode\s+(\d+)', full_title)
+                    episode_num = episode_num_match.group(1) if episode_num_match else ''
+
+                    air_date_elem = item.find('div', class_='air-date')
+                    air_date = air_date_elem.get_text(strip=True) if air_date_elem else ''
+
+                    if episode_num:
+                        base_episodes.append({
+                            'episode_number': episode_num,
+                            'title': full_title,
+                            'air_date': air_date
+                        })
+                except Exception as e:
+                    logger.error(f"Error parsing base episode item: {str(e)}")
+                    continue
+
+            if not base_episodes:
+                return {'episodes': [], 'total': 0}
+
+            # Step 2: Concurrently fetch each episode detail page
+            async def fetch_detail(ep: Dict[str, Any]) -> Dict[str, Any]:
+                try:
+                    n = int(ep['episode_number'])
+                    detail = await self.get_episode_details(slug, n)
+                    if detail:
+                        # Merge: prefer base title if detail title is generic
+                        ep['description'] = detail.get('description', '')
+                        ep['image'] = detail.get('image', '')
+                        ep['rating'] = detail.get('rating', '')
+                        ep['season'] = detail.get('season', '')
+                        # Use air_date from detail page if base is empty
+                        if not ep.get('air_date') and detail.get('air_date'):
+                            ep['air_date'] = detail['air_date']
+                    else:
+                        ep['description'] = ''
+                        ep['image'] = ''
+                        ep['rating'] = ''
+                        ep['season'] = ''
+                except Exception as e:
+                    logger.error(f"Error fetching detail for episode {ep.get('episode_number')}: {str(e)}")
+                    ep['description'] = ''
+                    ep['image'] = ''
+                    ep['rating'] = ''
+                    ep['season'] = ''
+                return ep
+
+            # Stagger requests slightly to avoid rate limiting (batch of 4 at a time)
+            enriched_episodes = []
+            batch_size = 4
+            for i in range(0, len(base_episodes), batch_size):
+                batch = base_episodes[i:i + batch_size]
+                results = await asyncio.gather(*[fetch_detail(ep) for ep in batch])
+                enriched_episodes.extend(results)
+                if i + batch_size < len(base_episodes):
+                    await asyncio.sleep(0.5)  # Brief pause between batches
+
+            return {
+                'episodes': enriched_episodes,
+                'total': len(enriched_episodes)
+            }
+        except Exception as e:
+            logger.error(f"Error in get_drama_episodes_all for '{slug}': {str(e)}")
+            return None
+
     async def get_drama_reviews(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get reviews for a drama by slug (or title)"""
         if not re.search(r'\d+-', slug):

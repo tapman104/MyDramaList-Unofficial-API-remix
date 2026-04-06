@@ -217,7 +217,7 @@
                                         </div>
                                         <div>
                                             <h4 class="font-semibold text-white text-sm">Comprehensive API</h4>
-                                            <p class="text-slate-400 text-sm">9 endpoints covering search, details, cast, reviews, people, and user lists.</p>
+                                            <p class="text-slate-400 text-sm">11 endpoints covering search, details, cast, episodes (n, all), reviews, people, and user lists.</p>
                                         </div>
                                     </div>
                                     <div class="flex items-start gap-3">
@@ -474,7 +474,9 @@ vercel --prod</code></pre>
                 { id: 'details', title: 'Get Drama Details', method: 'GET', path: '/api/id/{param}', description: 'Get detailed information for a specific drama using its slug.', param_placeholder: '746993-my-demon' },
                 { id: 'recs', title: 'Get Recommendations', method: 'GET', path: '/api/id/{param}/recs', description: 'Get drama recommendations for a specific drama using its slug.', param_placeholder: '21465-my-secret-romance' },
                 { id: 'cast', title: 'Get Cast & Crew', method: 'GET', path: '/api/id/{param}/cast', description: 'Get cast and crew information, grouped by their roles.', param_placeholder: '746993-my-demon' },
-                { id: 'episodes', title: 'Get Episodes', method: 'GET', path: '/api/id/{param}/episodes', description: 'Get episode details, including titles and air dates.', param_placeholder: '746993-my-demon' },
+                { id: 'episodes', title: 'Get Episodes', method: 'GET', path: '/api/id/{param}/episodes', description: 'Get episode list, including titles and air dates.', param_placeholder: '58651-run-on' },
+                { id: 'episode_n', title: 'Get Episode {N}', method: 'GET', path: '/api/id/{param}/episodes/{n}', description: 'Get full details for a single episode: description, cover image, rating, and air date. Provide slug and episode number.', param_placeholder: '58651-run-on', param2_placeholder: '1', has_two_params: true },
+                { id: 'episodes_all', title: 'Get All Episodes (Enriched)', method: 'GET', path: '/api/id/{param}/episodes/all', description: 'Get all episodes enriched with description and cover image by concurrently visiting each episode page.', param_placeholder: '58651-run-on' },
                 { id: 'reviews', title: 'Get Reviews', method: 'GET', path: '/api/id/{param}/reviews', description: 'Get user reviews for a specific drama.', param_placeholder: '746993-my-demon' },
                 { id: 'people', title: 'Get Person Details', method: 'GET', path: '/api/people/{param}', description: 'Get details for a specific person (actor, director, etc.).', param_placeholder: '14472-song-kang' },
                 { id: 'seasonal', title: 'Get Seasonal Dramas', method: 'GET', path: '/api/seasonal/{param}', description: 'Get top dramas for a specific year and quarter (1-4). Format: {year}/{quarter}.', param_placeholder: '2023/4' },
@@ -484,7 +486,7 @@ vercel --prod</code></pre>
             ];
             
             endpointsContainer.innerHTML = endpoints.map(ep => {
-                const hasParam = ep.path.includes('{param}');
+                const hasParam = ep.path.includes('{param}') || ep.path.includes('{n}');
                 return `
                 <div id="endpoint-${ep.id}" class="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
                     <div class="p-6 flex flex-col md:flex-row md:justify-between md:items-start">
@@ -505,7 +507,17 @@ vercel --prod</code></pre>
                     </div>
                     <div id="tester-${ep.id}" class="tester-panel hidden border-t border-slate-800">
                          <div class="p-6 space-y-4">
-                             ${hasParam ? `<div>
+                             ${ep.has_two_params ? `
+                             <div class="grid grid-cols-2 gap-3">
+                                 <div>
+                                     <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase" for="input-${ep.id}">Slug</label>
+                                     <input type="text" id="input-${ep.id}" class="w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 outline-none transition" placeholder="${ep.param_placeholder}" />
+                                 </div>
+                                 <div>
+                                     <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase" for="input2-${ep.id}">Episode #</label>
+                                     <input type="number" id="input2-${ep.id}" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 outline-none transition" placeholder="${ep.param2_placeholder}" />
+                                 </div>
+                             </div>` : hasParam ? `<div>
                                  <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase" for="input-${ep.id}">Parameter</label>
                                  <input type="text" id="input-${ep.id}" class="w-full bg-slate-800 border border-slate-700 rounded-md py-2 px-3 text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 outline-none transition" placeholder="${ep.param_placeholder}" />
                              </div>` : ''}
@@ -646,7 +658,17 @@ vercel --prod</code></pre>
                     
                     const placeholder = inputField ? inputField.placeholder : '';
                     const inputValue = inputField ? inputField.value.trim() || placeholder : '';
-                    let fullUrl = apiUrl + endpoint.path.replace('{param}', encodeURIComponent(inputValue));
+                    
+                    let fullUrl;
+                    if (endpoint.has_two_params) {
+                        const input2 = document.getElementById(`input2-${endpointId}`);
+                        const epNum = input2 ? (input2.value.trim() || input2.placeholder) : '1';
+                        fullUrl = apiUrl + endpoint.path
+                            .replace('{param}', encodeURIComponent(inputValue))
+                            .replace('{n}', encodeURIComponent(epNum));
+                    } else {
+                        fullUrl = apiUrl + endpoint.path.replace('{param}', encodeURIComponent(inputValue));
+                    }
                     
                     sendButton.disabled = true; 
                     sendButton.textContent = 'Fetching...';
@@ -719,6 +741,46 @@ vercel --prod</code></pre>
                                     </div>
                                 `).join('')}
                             </div>`;
+
+                        } else if (endpointId === 'episode_n' && response.ok && data.episode_number) {
+                            // --- Visual preview for single episode ---
+                            visualPreview.classList.remove('hidden');
+                            visualContent.innerHTML = `
+                                <div class="flex gap-6 mt-2 p-4 bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                                    ${data.image ? `<img src="${data.image}" alt="${data.title}" class="w-32 h-44 object-cover rounded-lg flex-shrink-0 border border-slate-700">` : `<div class="w-32 h-44 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0"><svg class="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg></div>`}
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-xs font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">Ep ${data.episode_number}</span>
+                                            ${data.season ? `<span class="text-xs text-slate-500">Season ${data.season}</span>` : ''}
+                                            ${data.rating ? `<span class="text-xs font-bold text-amber-400 ml-auto flex items-center gap-1">⭐ ${data.rating}</span>` : ''}
+                                        </div>
+                                        <h3 class="text-white font-bold text-base mb-1 leading-tight">${data.title}</h3>
+                                        ${data.air_date ? `<p class="text-xs text-slate-500 mb-3">📅 Aired: ${data.air_date}</p>` : ''}
+                                        <p class="text-slate-400 text-sm leading-relaxed line-clamp-4">${data.description || '<em class="text-slate-600">No description available.</em>'}</p>
+                                        ${data.url ? `<a href="${data.url}" target="_blank" class="inline-flex items-center gap-1 mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition-colors font-medium">View on MDL →</a>` : ''}
+                                    </div>
+                                </div>`;
+
+                        } else if (endpointId === 'episodes_all' && response.ok && data.episodes && data.episodes.length) {
+                            // --- Visual preview for all episodes ---
+                            visualPreview.classList.remove('hidden');
+                            visualContent.innerHTML = `
+                                <div class="mt-2 space-y-3">
+                                    ${data.episodes.map(ep => `
+                                    <div class="flex gap-4 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl hover:border-cyan-500/30 transition-colors">
+                                        ${ep.image ? `<img src="${ep.image}" alt="${ep.title}" class="w-16 h-24 object-cover rounded-md flex-shrink-0 border border-slate-700">` : `<div class="w-16 h-24 bg-slate-700 rounded-md flex items-center justify-center flex-shrink-0 text-slate-500 text-xs font-bold">${ep.episode_number}</div>`}
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2 mb-0.5">
+                                                <span class="text-xs font-bold text-cyan-400">Ep ${ep.episode_number}</span>
+                                                ${ep.rating ? `<span class="text-xs text-amber-400">⭐ ${ep.rating}</span>` : ''}
+                                                ${ep.air_date ? `<span class="text-xs text-slate-500 ml-auto">📅 ${ep.air_date}</span>` : ''}
+                                            </div>
+                                            <p class="text-sm font-semibold text-white mb-1 truncate">${ep.title}</p>
+                                            <p class="text-xs text-slate-400 leading-relaxed line-clamp-2">${ep.description || '<em class="text-slate-600">No description.</em>'}</p>
+                                        </div>
+                                    </div>`).join('')}
+                                </div>`;
+
                         } else {
                             visualPreview.classList.add('hidden');
                         }
