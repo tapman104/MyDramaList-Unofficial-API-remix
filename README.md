@@ -6,113 +6,110 @@ A serverless FastAPI-based web scraper for MyDramaList.com, designed for deploym
 
 > **Note**: This project is inspired from [@tbdsux/kuryana](https://github.com/tbdsux/kuryana). Special thanks to [@tbdsux](https://github.com/tbdsux)!
 
+---
+
 ## 🚀 Features
 
-- **Comprehensive API**: 9 endpoints covering drama search, details, cast, episodes, reviews, people, seasonal data, lists, and user drama lists
-- **Serverless Architecture**: Optimized for Vercel deployment with cold start handling
-- **Rate Limiting**: Built-in delays to respect MyDramaList.com's servers
-- **Error Handling**: Consistent JSON error responses with proper HTTP status codes
-- **Modular Design**: Separate scraping logic for maintainability
+- **11 Endpoints** — Search, details, cast, episodes (list / single / enriched-all), reviews, recommendations, people, seasonal, lists, user watchlists
+- **Episode Deep Scraping** — Visits each `/episode/{n}` page to extract description, cover image, rating, and season
+- **Concurrent Fetching** — `episodes/all` batches requests (4 at a time) with anti-ban delays
+- **Serverless Ready** — Optimized for Vercel deployment
+- **Rate Limiting** — Built-in 1 s delay per endpoint call; 0.5 s pause between episode batches
+- **Error Handling** — Consistent JSON error responses with proper HTTP status codes
+- **Modular Design** — Separate `scraper.py` for all scraping logic
+
+---
 
 ## 📋 API Endpoints
 
+### 🔍 Search
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/search/q/{query}` | Search for dramas by query |
-| GET | `/api/id/{slug}` | Get drama details by slug |
-| GET | `/api/id/{slug}/cast` | Get cast information for a drama |
-| GET | `/api/id/{slug}/episodes` | Get episode details for a drama |
-| GET | `/api/id/{slug}/reviews` | Get reviews for a drama |
-| GET | `/api/people/{people_id}` | Get person details by ID |
-| GET | `/api/seasonal/{year}/{quarter}` | Get seasonal dramas (quarter: 1-4) |
-| GET | `/api/list/{id}` | Get a specific drama list by ID |
-| GET | `/api/dramalist/{user_id}` | Get a user's drama list by user ID |
-| GET | `/api/health` | Health check endpoint |
+| GET | `/api/search/q/{query}` | Search dramas by title. Returns up to 20 results. |
 
-## 🛠️ Tech Stack
+### 🎬 Drama
 
-- **Python 3.12**: Primary language
-- **FastAPI**: Web framework
-- **BeautifulSoup4**: HTML parsing
-- **Requests**: HTTP client
-- **Uvicorn**: ASGI server
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/id/{slug}` | Full drama details — title, synopsis, genres, cast, rating, etc. |
+| GET | `/api/id/{slug}/cast` | Cast & crew grouped by role |
+| GET | `/api/id/{slug}/reviews` | User reviews (up to 10) |
+| GET | `/api/id/{slug}/recs` | Drama recommendations with reasons and votes |
 
-## 📁 Project Structure
+### 📺 Episodes
 
-```
-project_root/
-├── main.py              # FastAPI application
-├── scraper.py           # Scraping logic
-├── requirements.txt     # Dependencies
-├── vercel.json          # Vercel configuration
-├── static/
-│   └── index.html      # API documentation page
-└── README.md           # This file
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/id/{slug}/episodes` | Episode list — number, title, air date |
+| GET | `/api/id/{slug}/episodes/{n}` | **Single episode** — title, description, cover image, air date, rating, season |
+| GET | `/api/id/{slug}/episodes/all` | **All episodes enriched** — concurrently fetches every episode page for full details |
 
-## 🔧 Local Development
+### 👤 People & Lists
 
-1. **Clone and setup**:
-   ```bash
-   git clone <repository-url>
-   cd mydramalist-scraper
-   ```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/people/{people_id}` | Person details — biography, filmography, personal info |
+| GET | `/api/seasonal/{year}/{quarter}` | Top dramas for a season (quarter: `1`=Winter `2`=Spring `3`=Summer `4`=Fall) |
+| GET | `/api/list/{id}` | Items in a user-created public list |
+| GET | `/api/dramalist/{user_id}` | A user's public watchlist |
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### ⚙️ Utility
 
-3. **Run development server**:
-   ```bash
-   uvicorn main:app --reload
-   ```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
 
-4. **Access the API**:
-   - API Documentation: http://localhost:8000
-   - Interactive Docs: http://localhost:8000/docs
-   - Health Check: http://localhost:8000/api/health
+> **Slug format**: `{id}-{drama-name}` — e.g., `58651-run-on`, `746993-my-demon`
 
-## 🚀 Vercel Deployment
-
-### Prerequisites
-- [Vercel CLI](https://vercel.com/cli) installed
-- Vercel account
-
-### Deployment Steps
-
-1. **Install Vercel CLI** (if not already installed):
-   ```bash
-   npm i -g vercel
-   ```
-
-2. **Login to Vercel**:
-   ```bash
-   vercel login
-   ```
-
-3. **Deploy to Vercel**:
-   ```bash
-   vercel --prod
-   ```
-
-4. **Follow the prompts**:
-   - Set up and deploy: `Y`
-   - Which scope: Select your account/team
-   - Link to existing project: `N` (for new project)
-   - Project name: Enter desired name
-   - Directory: `./` (current directory)
-
-### Alternative: GitHub Integration
-
-1. Push your code to a GitHub repository
-2. Connect your GitHub account to Vercel
-3. Import the repository in Vercel dashboard
-4. Deploy automatically on every push
+---
 
 ## 📊 Response Examples
 
-### Search Results
+### `GET /api/id/{slug}/episodes/{n}` — Single Episode
+```json
+{
+  "episode_number": "1",
+  "url": "https://mydramalist.com/58651-run-on/episode/1",
+  "title": "Run On Episode 1",
+  "image": "https://i.mydramalist.com/pRvkV_3m.jpg",
+  "description": "Ki Seon Gyeom notices bruises on Kim Woo Shik's body. Trying to get back into her professor's good graces, Oh Mi Joo takes on an interpreting gig. (Source: Netflix)",
+  "air_date": "December 16, 2020",
+  "rating": "8.5/10",
+  "season": "1"
+}
+```
+
+### `GET /api/id/{slug}/episodes/all` — All Episodes Enriched
+```json
+{
+  "episodes": [
+    {
+      "episode_number": "1",
+      "title": "Run On Episode 1",
+      "air_date": "Dec 16, 2020",
+      "description": "Ki Seon Gyeom notices bruises on Kim Woo Shik's body...",
+      "image": "https://i.mydramalist.com/pRvkV_3m.jpg",
+      "rating": "8.5/10",
+      "season": "1"
+    }
+  ],
+  "total": 16
+}
+```
+
+### `GET /api/id/{slug}/episodes` — Episode List
+```json
+{
+  "episodes": [
+    { "episode_number": "1", "title": "Run On Episode 1", "air_date": "Dec 16, 2020" },
+    { "episode_number": "2", "title": "Run On Episode 2", "air_date": "Dec 17, 2020" }
+  ],
+  "total": 16
+}
+```
+
+### `GET /api/search/q/{query}`
 ```json
 {
   "results": [
@@ -120,36 +117,33 @@ project_root/
       "title": "Squid Game",
       "slug": "40257-round-six",
       "year": "2021",
-      "image": "https://i.mydramalist.com/X6vkX_4s.jpg?v=1",
+      "image": "https://i.mydramalist.com/X6vkX_4s.jpg",
       "rating": "8.4",
       "url": "https://mydramalist.com/40257-round-six"
-    },
-    {
-      "title": "Squid Game in Conversation",
-      "slug": "795618-squid-game-in-conversation",
-      "year": "2025",
-      "image": "https://i.mydramalist.com/5vWpAe_4s.jpg?v=1",
-      "rating": "8.0",
-      "url": "https://mydramalist.com/795618-squid-game-in-conversation"
-    },
-    {
-      "title": "Squid Game Season 3",
-      "slug": "771707-squid-game-season-3",
-      "year": "2025",
-      "image": "https://i.mydramalist.com/g0Rbn1_4s.jpg?v=1",
-      "rating": "7.5",
-      "url": "https://mydramalist.com/771707-squid-game-season-3"
-    },
-    {
-      "title": "Squid Game Season 2",
-      "slug": "714529-squid-game-season-2",
-      "year": "2024",
-      "image": "https://i.mydramalist.com/3o7eqj_4s.jpg?v=1",
-      "rating": "8.1",
-      "url": "https://mydramalist.com/714529-squid-game-season-2"
     }
   ],
   "total": 20
+}
+```
+
+### `GET /api/id/{slug}/recs`
+```json
+{
+  "recommendations": [
+    {
+      "title": "My Secret Romance",
+      "year": "2017",
+      "slug": "21465-my-secret-romance",
+      "url": "https://mydramalist.com/21465-my-secret-romance",
+      "image": "https://i.mydramalist.com/...",
+      "rating": "7.3",
+      "reasons": ["Both have office romance", "Similar chemistry between leads"],
+      "recommended_by": "username",
+      "votes": "42"
+    }
+  ],
+  "total": 25,
+  "pages_fetched": 1
 }
 ```
 
@@ -162,44 +156,109 @@ project_root/
 }
 ```
 
+---
+
+## 🛠️ Tech Stack
+
+| Tool | Purpose |
+|------|---------|
+| Python 3.12 | Primary language |
+| FastAPI | Web framework + auto `/docs` |
+| BeautifulSoup4 | HTML parsing |
+| curl_cffi | Anti-bot HTTP requests (browser impersonation) |
+| Uvicorn | ASGI server |
+
+---
+
+## 📁 Project Structure
+
+```
+project_root/
+├── main.py              # FastAPI routes
+├── scraper.py           # All scraping logic
+├── requirements.txt     # Dependencies
+├── vercel.json          # Vercel serverless config
+├── static/
+│   └── index.html       # Interactive API docs UI
+└── README.md
+```
+
+---
+
+## 🔧 Local Development
+
+1. **Clone and setup**:
+   ```bash
+   git clone https://github.com/B1PL0B/MyDramaList-Unofficial-API.git
+   cd MyDramaList-Unofficial-API
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run development server**:
+   ```bash
+   python -m uvicorn main:app --reload --port 9000
+   ```
+
+4. **Access**:
+   - Custom UI Docs: http://localhost:9000
+   - Swagger UI:     http://localhost:9000/docs
+   - ReDoc:          http://localhost:9000/redoc
+   - Health Check:   http://localhost:9000/api/health
+
+---
+
+## 🚀 Vercel Deployment
+
+```bash
+# 1. Install Vercel CLI
+npm i -g vercel
+
+# 2. Deploy
+vercel --prod
+```
+
+Or use the one-click button at the top of this README.
+
+---
+
 ## ⚠️ Important Notes
 
+### Episode Endpoints
+- `/episodes/{n}` — makes **1 extra HTTP request** per call (the episode detail page)
+- `/episodes/all` — makes **N extra requests** (one per episode), batched 4 at a time with 0.5 s delays. Expect ~5–15 s for a 16-episode drama.
+
+### Vercel Limits (Free Tier)
+| Limit | Value |
+|-------|-------|
+| Max execution time | 10 s |
+| Function size | 15 MB |
+| Cold starts | Possible on first request |
+
+> ⚠️ `/episodes/all` may time out on Vercel's free tier for long dramas. Consider deploying your own instance or using individual `/episodes/{n}` calls instead.
+
 ### Rate Limiting
-- Built-in 1-second delay between requests
-- Respects MyDramaList.com's servers
-- Prevents overwhelming the target site
+- 1 s delay on every endpoint entry
+- 0.5 s pause between episode batch groups
 
-### Vercel Limitations
-- **Execution Time**: 10 seconds (free tier)
-- **Function Size**: 15MB maximum
-- **Cold Starts**: First request may be slower
-
-### Legal Compliance
-- For educational purposes only
-- Respects robots.txt and terms of service
-- Includes proper user-agent headers
-- Implements reasonable rate limiting
+---
 
 ## 🔍 Error Handling
 
-The API handles various error scenarios:
+| Code | Meaning |
+|------|---------|
+| 400 | Invalid parameters or private resource |
+| 404 | Resource not found |
+| 500 | Server-side scraping error |
 
-- **400 Bad Request**: Invalid parameters or private resources
-- **404 Not Found**: Resource not found
-- **500 Internal Server Error**: Server-side errors
-
-All errors return consistent JSON responses with error codes and descriptions.
-
-## 🛡️ Best Practices
-
-1. **Respect Rate Limits**: Don't make rapid successive requests
-2. **Handle Errors**: Always check response status codes
-3. **Cache Responses**: Implement client-side caching when possible
-4. **Monitor Usage**: Be aware of Vercel function invocation limits
+---
 
 ## 📝 License
 
-This project is for educational purposes only. Please respect MyDramaList.com's terms of service and use responsibly.
+Educational use only. Please respect MyDramaList.com's terms of service.
 
 ## 🤝 Contributing
 
@@ -208,14 +267,3 @@ This project is for educational purposes only. Please respect MyDramaList.com's 
 3. Make your changes
 4. Test thoroughly
 5. Submit a pull request
-
-## 📞 Support
-
-For issues or questions:
-1. Check the API documentation at the root URL
-2. Review error responses for debugging information
-3. Check Vercel function logs for deployment issues
-
----
-
-**Note**: This scraper is designed to be respectful of MyDramaList.com's resources. Please use it responsibly and in accordance with their terms of service.
