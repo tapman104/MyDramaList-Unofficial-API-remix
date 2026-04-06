@@ -312,45 +312,55 @@ class MyDramaListScraper:
             data['title'] = title_elem.get_text(strip=True) if title_elem else f'Episode {episode_number}'
 
             # --- Cover Image ---
-            # The episode cover image sits in a div.episode-cover or similar; fall back to first responsive img
+            # MDL episode pages use img.img-responsive inside the episode box
             img_elem = (
-                soup.select_one('div.episode-cover img') or
+                soup.select_one('.episode-cover img') or
+                soup.select_one('.box-body img.img-responsive') or
                 soup.select_one('img.img-responsive') or
-                soup.select_one('div.cover img') or
-                soup.select_one('img[src*="episodes"]') or
                 soup.select_one('.film-cover img')
             )
             data['image'] = (img_elem.get('src') or img_elem.get('data-src') or '') if img_elem else ''
 
             # --- Description ---
+            # MDL uses div.show-episode-description for the episode blurb
             desc_elem = (
-                soup.select_one('div.episode-synopsis p') or
-                soup.select_one('div.show-synopsis p') or
-                soup.select_one('div.ep-synopsis p') or
-                soup.select_one('p.description')
+                soup.select_one('div.show-episode-description') or
+                soup.select_one('.episode-description') or
+                soup.select_one('div.episode-synopsis') or
+                soup.select_one('div.show-synopsis')
             )
-            data['description'] = desc_elem.get_text(' ', strip=True) if desc_elem else ''
+            if desc_elem:
+                # Strip any nested "Edit Translation" links
+                for a in desc_elem.find_all('a'):
+                    a.decompose()
+                data['description'] = desc_elem.get_text(' ', strip=True)
+            else:
+                # Fallback: og:description meta tag (always reliable on MDL)
+                og_desc = soup.select_one('meta[property="og:description"]')
+                data['description'] = og_desc['content'] if og_desc and og_desc.get('content') else ''
 
             # --- Air Date ---
+            # Try direct element first, then scan for "Aired: ..." text in the page
             aired_elem = soup.select_one('div.air-date, span.air-date, .episode-aired')
-            # Also try to find "Aired: ..." text
-            if not aired_elem:
-                for p in soup.find_all(['p', 'div', 'span']):
-                    txt = p.get_text(strip=True)
-                    if txt.startswith('Aired:'):
+            if aired_elem:
+                data['air_date'] = aired_elem.get_text(strip=True)
+            else:
+                data['air_date'] = ''
+                for el in soup.find_all(['p', 'div', 'span', 'li']):
+                    txt = el.get_text(strip=True)
+                    if txt.startswith('Aired:') and len(txt) < 60:
                         data['air_date'] = txt.replace('Aired:', '').strip()
                         break
-            else:
-                data['air_date'] = aired_elem.get_text(strip=True)
 
             # --- Rating ---
             rating_elem = soup.select_one('.hfs b, .score')
             data['rating'] = rating_elem.get_text(strip=True) if rating_elem else ''
 
             # --- Season ---
-            for p in soup.find_all(['p', 'div', 'span', 'li']):
-                txt = p.get_text(strip=True)
-                if txt.startswith('Season:'):
+            data['season'] = ''
+            for el in soup.find_all(['p', 'div', 'span', 'li']):
+                txt = el.get_text(strip=True)
+                if txt.startswith('Season:') and len(txt) < 20:
                     data['season'] = txt.replace('Season:', '').strip()
                     break
 
