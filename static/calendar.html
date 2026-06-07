@@ -84,8 +84,12 @@
             <p class="text-lg text-slate-400 max-w-2xl mx-auto mb-6">
                 Live drama schedule from MyDramaList — updated on page load
             </p>
-            <div id="total-badge" class="inline-block bg-slate-900 border border-slate-800 rounded-full px-4 py-1.5 text-sm font-medium text-cyan-400 opacity-0 transition-opacity duration-300">
-                Loading schedule...
+            <div class="flex justify-center items-center gap-3">
+                <div id="total-badge" class="inline-block bg-slate-900 border border-slate-800 rounded-full px-4 py-1.5 text-sm font-medium text-cyan-400 opacity-0 transition-opacity duration-300">
+                    Loading schedule...
+                </div>
+                <div id="cache-badge" class="hidden inline-flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-full px-3 py-1.5 text-sm font-medium transition-opacity duration-300">
+                </div>
             </div>
         </section>
         
@@ -164,6 +168,7 @@
         const emptyMessage = document.getElementById('empty-message');
         const errorBanner = document.getElementById('error-banner');
         const totalBadge = document.getElementById('total-badge');
+        const cacheBadge = document.getElementById('cache-badge');
         
         const heroDate = document.getElementById('hero-date');
         if (heroDate) {
@@ -296,11 +301,43 @@
             renderTabs(); // Render initial tabs state
             
             try {
-                const res = await fetch('/api/calendar');
-                if (!res.ok) throw new Error('API response not OK');
-                
-                const data = await res.json();
-                if (data.error) throw new Error(data.description || 'API Error');
+                const cached = sessionStorage.getItem('mdl_calendar');
+                const cachedTime = sessionStorage.getItem('mdl_calendar_time');
+                const SESSION_TTL = 60 * 60 * 1000; // 1 hour in ms
+
+                let data;
+
+                if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < SESSION_TTL) {
+                    data = JSON.parse(cached);
+                    if (cacheBadge) {
+                        cacheBadge.classList.remove('hidden');
+                        const ageMins = Math.floor((Date.now() - parseInt(cachedTime)) / 60000);
+                        cacheBadge.innerHTML = `<span class="text-slate-400">●</span> <span class="text-slate-400">Cached (${ageMins}m ago)</span>`;
+                    }
+                } else {
+                    const res = await fetch('/api/calendar');
+                    if (!res.ok) throw new Error('API response not OK');
+                    
+                    data = await res.json();
+                    if (data.error) throw new Error(data.description || 'API Error');
+                    
+                    sessionStorage.setItem('mdl_calendar', JSON.stringify(data));
+                    sessionStorage.setItem('mdl_calendar_time', Date.now().toString());
+
+                    const cacheStatus = res.headers.get('X-Cache');
+                    const cacheAge = res.headers.get('X-Cache-Age');
+                    
+                    if (cacheBadge) {
+                        cacheBadge.classList.remove('hidden');
+                        if (cacheStatus === 'HIT') {
+                            const ageStr = cacheAge ? cacheAge.replace('s', '') : '0';
+                            const ageMins = Math.floor(parseInt(ageStr) / 60);
+                            cacheBadge.innerHTML = `<span class="text-slate-400">●</span> <span class="text-slate-400">Cached (${ageMins}m ago)</span>`;
+                        } else {
+                            cacheBadge.innerHTML = `<span class="text-green-500">●</span> <span class="text-green-400">Live data</span>`;
+                        }
+                    }
+                }
                 
                 calendarData = data;
                 

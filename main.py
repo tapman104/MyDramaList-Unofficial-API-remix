@@ -4,6 +4,14 @@ from fastapi.responses import JSONResponse
 import logging
 import asyncio
 from scraper import MyDramaListScraper
+import time
+
+# In-memory cache for calendar data
+_calendar_cache = {
+    "data": None,
+    "timestamp": 0,
+    "ttl_seconds": 3600  # 1 hour
+}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -377,13 +385,29 @@ async def get_airing_calendar():
     try:
         logger.info("Getting airing calendar")
         await asyncio.sleep(1)  # Rate limiting
+
+        now = time.time()
+        if _calendar_cache["data"] is not None and (now - _calendar_cache["timestamp"]) < _calendar_cache["ttl_seconds"]:
+            # Return cached data, add cache hit header
+            response = JSONResponse(content=_calendar_cache["data"])
+            response.headers["X-Cache"] = "HIT"
+            response.headers["X-Cache-Age"] = str(int(now - _calendar_cache["timestamp"])) + "s"
+            return response
+
         calendar_data = await scraper.get_airing_calendar()
         if not calendar_data:
             return JSONResponse(
                 status_code=404,
                 content={"code": 404, "error": True, "description": "404 Not Found"}
             )
-        return calendar_data
+
+        # Store in cache
+        _calendar_cache["data"] = calendar_data
+        _calendar_cache["timestamp"] = now
+
+        response = JSONResponse(content=calendar_data)
+        response.headers["X-Cache"] = "MISS"
+        return response
     except Exception as e:
         logger.error(f"Error getting airing calendar: {str(e)}")
         raise HTTPException(
