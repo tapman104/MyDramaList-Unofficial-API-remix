@@ -183,7 +183,7 @@ class MyDramaListScraper:
 
         except Exception as e:
             logger.error(f"Error parsing drama details for '{slug}': {str(e)}")
-            return None
+            raise
 
     async def get_drama_cast(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get cast information for a drama by slug (or title)"""
@@ -243,7 +243,7 @@ class MyDramaListScraper:
             return {'cast': cast_by_role, 'total': total_cast}
         except Exception as e:
             logger.error(f"Error parsing cast page: {str(e)}")
-            return None
+            raise
 
     async def get_drama_episodes(self, slug: str) -> Optional[Dict[str, Any]]:
         """Get episode details for a drama by slug (or title)"""
@@ -283,7 +283,7 @@ class MyDramaListScraper:
             return {'episodes': episodes, 'total': len(episodes)}
         except Exception as e:
             logger.error(f"Error parsing episodes: {str(e)}")
-            return None
+            raise
 
     async def get_episode_details(self, slug: str, episode_number: int) -> Optional[Dict[str, Any]]:
         """Get details for a single episode (description + cover image) from /episode/{n}"""
@@ -362,7 +362,7 @@ class MyDramaListScraper:
             return data
         except Exception as e:
             logger.error(f"Error parsing episode {episode_number} for '{slug}': {str(e)}")
-            return None
+            raise
 
     async def get_drama_episodes_all(self, slug: str) -> Optional[Dict[str, Any]]:
         """
@@ -496,7 +496,7 @@ class MyDramaListScraper:
             return {'reviews': reviews, 'total': len(reviews)}
         except Exception as e:
             logger.error(f"Error parsing reviews: {str(e)}")
-            return None
+            raise
 
     async def get_person_details(self, people_id: str) -> Optional[Dict[str, Any]]:
         """Get person details by ID"""
